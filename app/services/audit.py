@@ -20,7 +20,7 @@ def log_event(
         file_id=file_id,
         ip=ip,
         user_agent=user_agent,
-        metadata=metadata,
+        details=metadata,
     )
     db.add(event)
     db.commit()

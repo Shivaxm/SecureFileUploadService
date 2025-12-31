@@ -1,35 +1,35 @@
-.PHONY: install format lint test up down migrate revision
+.PHONY: install format lint test up down migrate revision reset worker logs
 
 install:
-\tpip install -r requirements.txt
+	pip install -r requirements.txt
 
 format:
-\tblack app tests
+	black app tests
 
 lint:
-\truff check app tests
+	ruff check app tests
 
 test:
-\tpytest -q
+	pytest -q
 
 reset:
-\tdocker compose down -v
+	docker compose down -v
 
 worker:
-\tpython -m app.workers.rq_worker
+	python -m app.workers.rq_worker
 
 up:
-\tdocker compose up --build
+	docker compose up --build
 
 down:
-\tdocker compose down -v
+	docker compose down -v
 
 logs:
-\tdocker compose logs -f
+	docker compose logs -f
 
 migrate:
-\talembic upgrade head
+	docker compose run --rm -e PYTHONPATH=/app api alembic upgrade head
 
 revision:
-\talembic revision -m "auto" --autogenerate
+	alembic revision -m "auto" --autogenerate
 

@@ -1,10 +1,13 @@
 from functools import lru_cache
-from pydantic_settings import BaseSettings
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
     app_name: str = "secure-file-upload-service"
-    debug: bool = False
+    debug: bool = Field(default=False, alias="APP_DEBUG")
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 
@@ -22,11 +25,6 @@ class Settings(BaseSettings):
 
     rate_limit_default: int = 100
     quota_default_bytes: int = 1_073_741_824
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-
 
 @lru_cache
 def get_settings() -> Settings:

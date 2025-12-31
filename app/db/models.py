@@ -79,7 +79,7 @@ class AuditEvent(Base):
     file_id = Column(String, ForeignKey("file_objects.id"), nullable=True)
     ip = Column(String, nullable=True)
     user_agent = Column(String, nullable=True)
-    metadata = Column(JSONB, nullable=True)
+    details = Column(JSONB, nullable=True)
     created_at = Column(DateTime, default=dt.datetime.utcnow, nullable=False)
 
 

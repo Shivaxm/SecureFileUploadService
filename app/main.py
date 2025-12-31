@@ -11,7 +11,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name, debug=settings.debug)
     app.state.settings = settings
 
-    app.add_middleware(RateLimitMiddleware, redis_url=settings.redis_url)
+    app.add_middleware(RateLimitMiddleware)
 
     app.include_router(health.router, prefix="/health", tags=["health"])
     app.include_router(auth.router, prefix="/auth", tags=["auth"])
