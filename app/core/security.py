@@ -1,8 +1,10 @@
 import datetime as dt
-import jwt
+from jose import jwt, JWTError
+from passlib.context import CryptContext
 from app.core.config import settings
 
 ALGORITHM = settings.jwt_algorithm
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def create_access_token(payload: dict) -> str:
@@ -15,6 +17,14 @@ def create_access_token(payload: dict) -> str:
 def decode_token(token: str) -> dict | None:
     try:
         return jwt.decode(token, settings.jwt_secret, algorithms=[ALGORITHM])
-    except jwt.PyJWTError:
+    except JWTError:
         return None
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+def get_password_hash(password: str) -> str:
+    return pwd_context.hash(password)
 

@@ -1,9 +1,7 @@
-import time
 from typing import Callable
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 import redis
-from app.core.config import settings
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):

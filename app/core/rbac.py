@@ -2,8 +2,7 @@ from fastapi import HTTPException, status
 from app.db import models
 
 
-def authorize_object(user: models.User, obj: object) -> None:
-    # TODO: implement object-level permissions and RBAC
-    if getattr(obj, "user_id", None) not in {None, user.id} and user.role != models.UserRole.admin:
+def authorize_owner_or_admin(user: models.User, owner_id: str) -> None:
+    if user.role != models.UserRole.admin and user.id != owner_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
