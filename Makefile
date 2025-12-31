@@ -12,6 +12,9 @@ lint:
 test:
 \tpytest -q
 
+worker:
+\tpython -m app.workers.rq_worker
+
 up:
 \tdocker compose up --build
 

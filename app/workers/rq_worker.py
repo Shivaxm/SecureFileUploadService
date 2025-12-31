@@ -4,6 +4,7 @@ from redis import Redis
 from app.core.config import settings
 from app.services.scanner import SCAN_QUEUE
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 

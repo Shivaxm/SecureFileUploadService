@@ -8,6 +8,7 @@ from app.api import deps
 from app.db import models
 from app.services.storage import StorageClient
 from app.services.audit import log_event
+from app.services.scanner import enqueue_scan, ALLOWED_CONTENT_TYPES
 
 router = APIRouter()
 
@@ -29,6 +30,30 @@ class InitResponse(BaseModel):
 class CompleteResponse(BaseModel):
     state: models.FileObjectState
     sniffed_content_type: str | None
+
+
+class FileDetail(BaseModel):
+    id: str
+    owner_id: str
+    bucket: str
+    object_key: str
+    original_filename: str
+    declared_content_type: str
+    sniffed_content_type: str | None
+    checksum_sha256: str
+    checksum_verified: bool
+    size_bytes: int | None
+    state: models.FileObjectState
+    created_at: dt.datetime
+    updated_at: dt.datetime | None
+
+    class Config:
+        orm_mode = True
+
+
+class DownloadUrlResponse(BaseModel):
+    download_url: str
+    expires_in: int
 
 
 @router.post("/init", response_model=InitResponse)
@@ -154,15 +179,64 @@ async def complete_upload(
         )
         return CompleteResponse(state=file_obj.state, sniffed_content_type=sniffed)
 
-    file_obj.state = models.FileObjectState.UPLOADED
+    if sniffed and sniffed.split(";")[0] not in ALLOWED_CONTENT_TYPES:
+        file_obj.state = models.FileObjectState.QUARANTINED
+        db.commit()
+        log_event(
+            db,
+            actor_user_id=user.id,
+            action="UPLOAD_QUARANTINED",
+            file_id=file_obj.id,
+            request=request,
+            metadata={"reason": "disallowed_type", "sniffed": sniffed, "declared": file_obj.declared_content_type},
+        )
+        return CompleteResponse(state=file_obj.state, sniffed_content_type=sniffed)
+
+    file_obj.state = models.FileObjectState.SCANNING
     db.commit()
     log_event(
         db,
         actor_user_id=user.id,
-        action="UPLOAD_COMPLETE",
+        action="UPLOAD_ENQUEUED",
         file_id=file_obj.id,
         request=request,
         metadata={"sniffed": sniffed, "declared": file_obj.declared_content_type},
     )
+    enqueue_scan(file_obj.id)
     return CompleteResponse(state=file_obj.state, sniffed_content_type=sniffed)
+
+
+@router.get("/{file_id}", response_model=FileDetail)
+async def get_file(
+    file_id: str,
+    db: Session = Depends(deps.get_db),
+    user: models.User = Depends(deps.get_current_user),
+):
+    file_obj = db.get(models.FileObject, file_id)
+    if not file_obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+    if user.role != models.UserRole.admin and file_obj.owner_id != user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    return file_obj
+
+
+@router.post("/{file_id}/download-url", response_model=DownloadUrlResponse)
+async def download_url(
+    file_id: str,
+    request: Request,
+    db: Session = Depends(deps.get_db),
+    user: models.User = Depends(deps.get_current_user),
+):
+    file_obj = db.get(models.FileObject, file_id)
+    if not file_obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+    if user.role != models.UserRole.admin and file_obj.owner_id != user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    if file_obj.state != models.FileObjectState.ACTIVE and user.role != models.UserRole.admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="File not available for download")
+
+    storage = StorageClient()
+    url = storage.generate_presigned_get(file_obj.object_key, expires=300)
+    log_event(db, actor_user_id=user.id, action="DOWNLOAD_URL_ISSUED", file_id=file_obj.id, request=request)
+    return DownloadUrlResponse(download_url=url, expires_in=300)
 

@@ -3,6 +3,7 @@ import httpx
 import pytest
 from app.db.session import SessionLocal
 from app.db import models
+from app.services.scanner import scan_file
 
 
 async def register_and_get_token(client, email: str = "user@example.com", password: str = "pass1234") -> str:
@@ -14,6 +15,12 @@ async def register_and_get_token(client, email: str = "user@example.com", passwo
 
 def auth_headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
+
+
+async def upload_via_presigned(url: str, headers: dict[str, str], content: bytes):
+    async with httpx.AsyncClient() as http_client:
+        res = await http_client.put(url, content=content, headers=headers)
+        assert res.status_code in {200, 204}
 
 
 @pytest.mark.asyncio
@@ -79,16 +86,14 @@ async def test_complete_rejects_checksum_mismatch(client):
         },
     )
     body = init_resp.json()
-    upload_url = body["upload_url"]
-    headers = body["headers_to_include"]
-
-    async with httpx.AsyncClient() as http_client:
-        res = await http_client.put(upload_url, content=b"wrong-content", headers=headers)
-        assert res.status_code in {200, 204}
+    await upload_via_presigned(body["upload_url"], body["headers_to_include"], b"wrong-content")
 
     complete = await client.post(f"/files/{body['file_id']}/complete", headers=auth_headers(token))
     assert complete.status_code == 200
     assert complete.json()["state"] == models.FileObjectState.REJECTED.value
+
+    download = await client.post(f"/files/{body['file_id']}/download-url", headers=auth_headers(token))
+    assert download.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -106,14 +111,46 @@ async def test_complete_quarantines_on_sniff_mismatch(client):
         },
     )
     body = init_resp.json()
-    upload_url = body["upload_url"]
-    headers = body["headers_to_include"]
-
-    async with httpx.AsyncClient() as http_client:
-        res = await http_client.put(upload_url, content=content, headers=headers)
-        assert res.status_code in {200, 204}
+    await upload_via_presigned(body["upload_url"], body["headers_to_include"], content)
 
     complete = await client.post(f"/files/{body['file_id']}/complete", headers=auth_headers(token))
     assert complete.status_code == 200
     assert complete.json()["state"] == models.FileObjectState.QUARANTINED.value
+
+    download = await client.post(f"/files/{body['file_id']}/download-url", headers=auth_headers(token))
+    assert download.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_happy_path_scan_and_download(client):
+    token = await register_and_get_token(client, email="happy@example.com")
+    content = b"valid plain text"
+    checksum = hashlib.sha256(content).hexdigest()
+    init_resp = await client.post(
+        "/files/init",
+        headers=auth_headers(token),
+        json={
+            "original_filename": "note.txt",
+            "content_type": "text/plain",
+            "checksum_sha256": checksum,
+        },
+    )
+    init_body = init_resp.json()
+    await upload_via_presigned(init_body["upload_url"], init_body["headers_to_include"], content)
+
+    complete = await client.post(f"/files/{init_body['file_id']}/complete", headers=auth_headers(token))
+    assert complete.status_code == 200
+    assert complete.json()["state"] == models.FileObjectState.SCANNING.value
+
+    # Run scan synchronously
+    scan_file(init_body["file_id"])
+
+    db = SessionLocal()
+    refreshed = db.get(models.FileObject, init_body["file_id"])
+    assert refreshed.state == models.FileObjectState.ACTIVE
+    db.close()
+
+    download = await client.post(f"/files/{init_body['file_id']}/download-url", headers=auth_headers(token))
+    assert download.status_code == 200
+    assert "download_url" in download.json()
 
