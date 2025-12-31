@@ -1,13 +1,50 @@
-import pytest
 import asyncio
+import boto3
+import pytest
 from httpx import AsyncClient
+from sqlalchemy import text
 from app.main import app
+from app.db.session import engine, SessionLocal
+from app.db.models import Base
+from app.core.config import settings
 
 
 @pytest.fixture(scope="session")
 def event_loop():
     loop = asyncio.get_event_loop()
     yield loop
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_db():
+    Base.metadata.drop_all(engine)
+    Base.metadata.create_all(engine)
+    yield
+    Base.metadata.drop_all(engine)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def clean_db():
+    with engine.begin() as conn:
+        conn.execute(text("TRUNCATE TABLE audit_events RESTART IDENTITY CASCADE"))
+        conn.execute(text("TRUNCATE TABLE file_objects RESTART IDENTITY CASCADE"))
+        conn.execute(text("TRUNCATE TABLE users RESTART IDENTITY CASCADE"))
+    yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def ensure_bucket():
+    client = boto3.client(
+        "s3",
+        endpoint_url=settings.minio_endpoint,
+        aws_access_key_id=settings.minio_access_key,
+        aws_secret_access_key=settings.minio_secret_key,
+    )
+    try:
+        client.head_bucket(Bucket=settings.minio_bucket)
+    except Exception:
+        client.create_bucket(Bucket=settings.minio_bucket)
+    yield
 
 
 @pytest.fixture
