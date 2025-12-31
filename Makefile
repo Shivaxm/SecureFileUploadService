@@ -18,6 +18,9 @@ up:
 down:
 \tdocker compose down -v
 
+logs:
+\tdocker compose logs -f
+
 migrate:
 \talembic upgrade head
 
