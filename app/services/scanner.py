@@ -8,6 +8,7 @@ from app.db.session import SessionLocal
 from app.db import models
 from app.services.storage import StorageClient
 from app.services.audit import log_event
+from app.services.quota import QuotaService
 
 SCAN_QUEUE = "scan"
 MAX_SIZE_BYTES = 50 * 1024 * 1024
@@ -75,9 +76,16 @@ def scan_file(file_id: str) -> str:
 
         if declared_ok and sniff_ok:
             file_obj.state = models.FileObjectState.ACTIVE
-            db.commit()
-            log_event(db, actor_user_id=file_obj.owner_id, action="SCAN_PASS", file_id=file_obj.id, metadata={"sniffed": sniffed})
-            return "active"
+            try:
+                QuotaService(db).increment_on_active(file_obj.owner_id, file_obj.size_bytes or 0)
+                db.commit()
+                log_event(db, actor_user_id=file_obj.owner_id, action="SCAN_PASS", file_id=file_obj.id, metadata={"sniffed": sniffed})
+                return "active"
+            except PermissionError:
+                file_obj.state = models.FileObjectState.QUARANTINED
+                db.commit()
+                log_event(db, actor_user_id=file_obj.owner_id, action="SCAN_QUARANTINED", file_id=file_obj.id, metadata={"reason": "quota_exceeded"})
+                return "quarantined"
 
         file_obj.state = models.FileObjectState.QUARANTINED
         db.commit()

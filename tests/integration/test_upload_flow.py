@@ -144,13 +144,70 @@ async def test_happy_path_scan_and_download(client):
 
     # Run scan synchronously
     scan_file(init_body["file_id"])
+    scan_file(init_body["file_id"])  # idempotent second call
 
     db = SessionLocal()
     refreshed = db.get(models.FileObject, init_body["file_id"])
     assert refreshed.state == models.FileObjectState.ACTIVE
+    counter = db.get(models.UsageCounter, refreshed.owner_id)
+    assert counter is not None
+    assert counter.files_count == 1
+    assert counter.bytes_stored == len(content)
     db.close()
 
     download = await client.post(f"/files/{init_body['file_id']}/download-url", headers=auth_headers(token))
     assert download.status_code == 200
     assert "download_url" in download.json()
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_login(client):
+    # register once
+    await client.post("/auth/register", json={"email": "rl@example.com", "password": "pass1234"})
+    last_status = None
+    for _ in range(6):
+        resp = await client.post("/auth/login", json={"email": "rl@example.com", "password": "pass1234"})
+        last_status = resp.status_code
+    assert last_status == 429
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_files_init(client):
+    token = await register_and_get_token(client, email="rlfile@example.com")
+    checksum = hashlib.sha256(b"x").hexdigest()
+    last_status = None
+    for _ in range(11):
+        resp = await client.post(
+            "/files/init",
+            headers=auth_headers(token),
+            json={
+                "original_filename": "x.txt",
+                "content_type": "text/plain",
+                "checksum_sha256": checksum,
+            },
+        )
+        last_status = resp.status_code
+    assert last_status == 429
+
+
+@pytest.mark.asyncio
+async def test_quota_blocks_init_when_at_limit(client):
+    token = await register_and_get_token(client, email="quota@example.com")
+    db = SessionLocal()
+    user = db.query(models.User).filter_by(email="quota@example.com").first()
+    db.add(models.UsageCounter(user_id=user.id, files_count=200, bytes_stored=0))
+    db.commit()
+    db.close()
+
+    checksum = hashlib.sha256(b"y").hexdigest()
+    resp = await client.post(
+        "/files/init",
+        headers=auth_headers(token),
+        json={
+            "original_filename": "y.txt",
+            "content_type": "text/plain",
+            "checksum_sha256": checksum,
+        },
+    )
+    assert resp.status_code == 403
 

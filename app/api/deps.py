@@ -24,6 +24,7 @@ def get_current_user(request: Request, db=Depends(get_db)) -> models.User:
     user = db.get(models.User, payload.get("sub"))
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    request.state.user_id = user.id
     return user
 
 

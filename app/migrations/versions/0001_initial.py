@@ -79,8 +79,17 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
     )
 
+    op.create_table(
+        "usage_counters",
+        sa.Column("user_id", sa.String(), sa.ForeignKey("users.id"), primary_key=True),
+        sa.Column("files_count", sa.Integer(), nullable=False, server_default=sa.text("0")),
+        sa.Column("bytes_stored", sa.BigInteger(), nullable=False, server_default=sa.text("0")),
+        sa.Column("updated_at", sa.DateTime(), nullable=True, server_default=sa.func.now()),
+    )
+
 
 def downgrade() -> None:
+    op.drop_table("usage_counters")
     op.drop_table("audit_events")
     op.drop_index("ix_file_objects_owner_created", table_name="file_objects")
     op.drop_table("file_objects")

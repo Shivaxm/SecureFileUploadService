@@ -9,6 +9,8 @@ from app.db import models
 from app.services.storage import StorageClient
 from app.services.audit import log_event
 from app.services.scanner import enqueue_scan, ALLOWED_CONTENT_TYPES
+from app.services.quota import QuotaService
+from app.core.rate_limit import rate_limit_user
 
 router = APIRouter()
 
@@ -62,6 +64,7 @@ async def init_upload(
     request: Request,
     db: Session = Depends(deps.get_db),
     user: models.User = Depends(deps.get_current_user),
+    _: None = Depends(rate_limit_user("files_init", 10, 60)),
 ):
     expires_at = dt.datetime.utcnow() + dt.timedelta(minutes=15)
     object_key = f"{uuid.uuid4()}_{payload.original_filename.replace(' ', '_')}"
@@ -79,6 +82,10 @@ async def init_upload(
         upload_expires_at=expires_at,
     )
 
+    try:
+        QuotaService(db).enforce_init(user.id)
+    except PermissionError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="quota exceeded")
     db.add(file_obj)
     db.commit()
     db.refresh(file_obj)
@@ -111,6 +118,7 @@ async def complete_upload(
     request: Request,
     db: Session = Depends(deps.get_db),
     user: models.User = Depends(deps.get_current_user),
+    _: None = Depends(rate_limit_user("files_complete", 20, 60)),
 ):
     file_obj: models.FileObject | None = db.get(models.FileObject, file_id)
     if not file_obj:
@@ -226,6 +234,7 @@ async def download_url(
     request: Request,
     db: Session = Depends(deps.get_db),
     user: models.User = Depends(deps.get_current_user),
+    _: None = Depends(rate_limit_user("files_download_url", 30, 60)),
 ):
     file_obj = db.get(models.FileObject, file_id)
     if not file_obj:

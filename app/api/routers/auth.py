@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.api import deps
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.db import models
+from app.core.rate_limit import rate_limit_ip
 
 router = APIRouter()
 
@@ -24,7 +25,11 @@ class TokenResponse(BaseModel):
 
 
 @router.post("/register", response_model=TokenResponse)
-async def register(payload: RegisterRequest, db: Session = Depends(deps.get_db)):
+async def register(
+    payload: RegisterRequest,
+    db: Session = Depends(deps.get_db),
+    _: None = Depends(rate_limit_ip("auth_register", 3, 60)),
+):
     existing = db.query(models.User).filter_by(email=payload.email).first()
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
@@ -41,7 +46,11 @@ async def register(payload: RegisterRequest, db: Session = Depends(deps.get_db))
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(payload: LoginRequest, db: Session = Depends(deps.get_db)):
+async def login(
+    payload: LoginRequest,
+    db: Session = Depends(deps.get_db),
+    _: None = Depends(rate_limit_ip("auth_login", 5, 60)),
+):
     user = db.query(models.User).filter_by(email=payload.email).first()
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")

@@ -9,6 +9,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     Boolean,
+    BigInteger,
     UniqueConstraint,
     Index,
 )
@@ -80,4 +81,13 @@ class AuditEvent(Base):
     user_agent = Column(String, nullable=True)
     metadata = Column(JSONB, nullable=True)
     created_at = Column(DateTime, default=dt.datetime.utcnow, nullable=False)
+
+
+class UsageCounter(Base):
+    __tablename__ = "usage_counters"
+
+    user_id = Column(String, ForeignKey("users.id"), primary_key=True)
+    files_count = Column(Integer, nullable=False, default=0)
+    bytes_stored = Column(BigInteger, nullable=False, default=0)
+    updated_at = Column(DateTime, default=dt.datetime.utcnow, onupdate=dt.datetime.utcnow)
 

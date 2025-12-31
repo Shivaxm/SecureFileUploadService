@@ -3,6 +3,7 @@ import boto3
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import text
+import redis
 from app.main import app
 from app.db.session import engine, SessionLocal
 from app.db.models import Base
@@ -29,6 +30,7 @@ def clean_db():
         conn.execute(text("TRUNCATE TABLE audit_events RESTART IDENTITY CASCADE"))
         conn.execute(text("TRUNCATE TABLE file_objects RESTART IDENTITY CASCADE"))
         conn.execute(text("TRUNCATE TABLE users RESTART IDENTITY CASCADE"))
+        conn.execute(text("TRUNCATE TABLE usage_counters RESTART IDENTITY CASCADE"))
     yield
 
 
@@ -44,6 +46,13 @@ def ensure_bucket():
         client.head_bucket(Bucket=settings.minio_bucket)
     except Exception:
         client.create_bucket(Bucket=settings.minio_bucket)
+    yield
+
+
+@pytest.fixture(autouse=True)
+def flush_redis():
+    r = redis.Redis.from_url(settings.redis_url)
+    r.flushdb()
     yield
 
 
