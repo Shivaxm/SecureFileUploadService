@@ -12,15 +12,31 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - name: Install docker-compose
-        run: sudo apt-get update && sudo apt-get install -y docker-compose
-      - name: Build images
-        run: docker compose build
-      - name: Run lint
-        run: docker compose run --rm api make lint
-      - name: Run tests
-        run: docker compose run --rm api make test
+          python-version: "3.12"
+      - name: Install deps
+        run: pip install -r requirements.txt
+      - name: Lint
+        run: |
+          ruff check app tests
+          black --check app tests
+      - name: Start services
+        run: |
+          docker compose up -d postgres redis minio
+      - name: Wait for services
+        run: |
+          for i in {1..30}; do docker compose exec -T postgres pg_isready -U postgres && break || sleep 2; done
+          for i in {1..30}; do docker compose exec -T redis redis-cli ping && break || sleep 2; done
+          for i in {1..30}; do curl -f http://localhost:9000/minio/health/ready && break || sleep 2; done
+      - name: Tests
+        env:
+          DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/app
+          REDIS_URL: redis://localhost:6379/0
+          MINIO_ENDPOINT: http://localhost:9000
+          MINIO_ACCESS_KEY: minioadmin
+          MINIO_SECRET_KEY: minioadmin
+          MINIO_BUCKET: uploads
+          JWT_SECRET: ci-secret
+        run: pytest -q
       - name: Down
         if: always()
         run: docker compose down -v

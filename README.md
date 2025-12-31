@@ -1,41 +1,92 @@
-# Secure File Upload Service (Skeleton)
+# Secure File Upload Service
 
-Scaffold for a FastAPI-based secure upload service with MinIO, Postgres, Redis, RQ, and basic CI.
+FastAPI + Postgres + MinIO + Redis + RQ service for secure, presigned uploads with checksum verification, sniffing, audit logs, rate limits, and quotas.
 
-- Start stack: `docker compose up --build`
-- Run linters/tests locally: `make lint && make test`
-- Alembic migrations: `make revision`, `make migrate`
+## Architecture (ASCII)
+```
+[Client] --(auth/register/login)--> [FastAPI]
+[Client] --(init)--> [FastAPI] --(presign PUT)--> [MinIO URL]
+[Client] --(PUT object)--> [MinIO]
+[Client] --(complete)--> [FastAPI] --(enqueue)--> [Redis/RQ]
+[Worker] --(scan_file)--> [MinIO + Postgres]
+[Client] --(download-url)--> [FastAPI] --(presign GET)--> [MinIO URL]
+```
 
-Implementation is intentionally stubbed with TODOs.
+State machine (FileObject.state):
+```
+INITIATED -> SCANNING -> ACTIVE
+INITIATED -> QUARANTINED/REJECTED (checksum/sniff fail)
+SCANNING -> QUARANTINED (policy/size/type fail) -> (optional delete later)
+```
 
-## Quick demo (Phase 2/3 flow)
-1) Register + login to get token (replace email/password):
-   ```
-   curl -X POST http://localhost:8000/auth/register -H "Content-Type: application/json" -d '{"email":"me@example.com","password":"pass1234"}'
-   curl -X POST http://localhost:8000/auth/login -H "Content-Type: application/json" -d '{"email":"me@example.com","password":"pass1234"}'
-   ```
-   Save `access_token` as `$TOKEN`.
+## Threat model (mitigations)
+- IDOR/object auth: owner-or-admin checks on file operations.
+- MIME spoofing: sniff first bytes; mismatch => quarantine.
+- Checksum integrity: SHA-256 verified on complete before scanning.
+- Presigned URL TTL/replay: short-lived presigns (15m PUT, 5m GET).
+- Audit logging: actions recorded with actor, IP, UA.
+- Rate limiting + quotas: Redis fixed-window limits + per-user usage caps.
 
-2) Init upload (returns presigned PUT):
-   ```
-   CHECKSUM=$(printf 'hello world' | sha256sum | awk '{print $1}')
-   curl -X POST http://localhost:8000/files/init \
-     -H "Authorization: Bearer $TOKEN" \
-     -H "Content-Type: application/json" \
-     -d '{"original_filename":"hello.txt","content_type":"text/plain","checksum_sha256":"'$CHECKSUM'"}'
-   ```
-   Save `upload_url`, `headers_to_include`, and `file_id`.
+## Run locally
+```
+cp .env.example .env
+make up
+make migrate
+```
+API: http://localhost:8000
 
-3) Upload to MinIO using presigned URL (include returned headers):
-   ```
-   curl -X PUT "$upload_url" -H "Content-Type: text/plain" \
-     -H "x-amz-meta-checksum-sha256: $CHECKSUM" \
-     -H "x-amz-meta-owner-id: <user-id>" \
-     --data-binary @"./hello.txt"
-   ```
+## Demo (exact commands)
+```
+# 1) Register
+curl -X POST http://localhost:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"me@example.com","password":"pass1234"}'
 
-4) Complete upload (checksum + sniff):
-   ```
-   curl -X POST http://localhost:8000/files/$file_id/complete \
-     -H "Authorization: Bearer $TOKEN"
-   ```
+# 2) Login -> capture TOKEN
+TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"me@example.com","password":"pass1234"}' | jq -r .access_token)
+
+# 3) Init upload
+CHECKSUM=$(printf 'hello world' | sha256sum | awk '{print $1}')
+INIT=$(curl -s -X POST http://localhost:8000/files/init \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"original_filename":"hello.txt","content_type":"text/plain","checksum_sha256":"'$CHECKSUM'"}')
+UPLOAD_URL=$(echo $INIT | jq -r .upload_url)
+FILE_ID=$(echo $INIT | jq -r .file_id)
+HDR_CT="Content-Type: text/plain"
+HDR_CSUM="x-amz-meta-checksum-sha256: $CHECKSUM"
+HDR_OWNER="x-amz-meta-owner-id: me@example.com"
+
+# 4) PUT to presigned URL
+curl -X PUT "$UPLOAD_URL" -H "$HDR_CT" -H "$HDR_CSUM" -H "$HDR_OWNER" --data-binary @"./hello.txt"
+
+# 5) Complete
+curl -X POST http://localhost:8000/files/$FILE_ID/complete -H "Authorization: Bearer $TOKEN"
+
+# 6) Run scan (either worker already running, or run once manually)
+docker compose run --rm worker python -c "from app.services.scanner import scan_file; scan_file('$FILE_ID')"  # or let worker process it
+
+# 7) Get download URL
+curl -X POST http://localhost:8000/files/$FILE_ID/download-url -H "Authorization: Bearer $TOKEN"
+```
+
+## Testing
+```
+make test
+```
+
+## Make targets
+- up / down / logs
+- migrate / revision
+- lint / format / test
+- worker
+- reset (down -v)
+
+## Tradeoffs
+- Presigned URLs reduce API bandwidth/load; trust but verify with checksum/sniff.
+- Async scan via RQ: at-least-once; idempotent scan_file guards.
+- Fixed-window rate limits: simple and explicit; can burst within window.
+- No real AV engine: only MIME/size rules; extend with AV later.
+- Quotas enforced in Postgres counters; no caching to keep correctness.

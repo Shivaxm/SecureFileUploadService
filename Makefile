@@ -12,6 +12,9 @@ lint:
 test:
 \tpytest -q
 
+reset:
+\tdocker compose down -v
+
 worker:
 \tpython -m app.workers.rq_worker
 
