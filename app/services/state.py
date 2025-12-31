@@ -2,21 +2,21 @@ from enum import Enum
 
 
 class FileState(str, Enum):
-    PENDING_UPLOAD = "PENDING_UPLOAD"
-    UPLOADING = "UPLOADING"
+    INITIATED = "INITIATED"
+    UPLOADED = "UPLOADED"
     SCANNING = "SCANNING"
-    AVAILABLE = "AVAILABLE"
+    ACTIVE = "ACTIVE"
     QUARANTINED = "QUARANTINED"
-    DELETED = "DELETED"
+    REJECTED = "REJECTED"
 
 
 ALLOWED_TRANSITIONS: dict[FileState, set[FileState]] = {
-    FileState.PENDING_UPLOAD: {FileState.UPLOADING},
-    FileState.UPLOADING: {FileState.SCANNING, FileState.DELETED},
-    FileState.SCANNING: {FileState.AVAILABLE, FileState.QUARANTINED},
-    FileState.AVAILABLE: {FileState.DELETED},
-    FileState.QUARANTINED: {FileState.DELETED},
-    FileState.DELETED: set(),
+    FileState.INITIATED: {FileState.UPLOADED, FileState.REJECTED, FileState.QUARANTINED},
+    FileState.UPLOADED: {FileState.SCANNING, FileState.ACTIVE, FileState.QUARANTINED},
+    FileState.SCANNING: {FileState.ACTIVE, FileState.QUARANTINED},
+    FileState.ACTIVE: set(),
+    FileState.QUARANTINED: {FileState.REJECTED},
+    FileState.REJECTED: set(),
 }
 
 
