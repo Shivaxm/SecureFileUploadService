@@ -41,11 +41,9 @@ Prereqs on your host:
 - curl
 - jq (install via `brew install jq`) — or see Python fallback below
 - sha256: use `shasum -a 256` on macOS (or `sha256sum` if available)
+- A file to upload (example uses `hello.txt`; create it with `echo "hello world" > hello.txt`)
 
 ```bash
-# 0) Prepare a file
-echo "hello world" > hello.txt
-
 # 1) Register
 curl -X POST http://localhost:8000/auth/register \
   -H "Content-Type: application/json" \
