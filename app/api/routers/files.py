@@ -95,10 +95,6 @@ async def init_upload(
         key=file_obj.object_key,
         content_type=payload.content_type,
         expires_in=15 * 60,
-        extra_metadata={
-            "checksum-sha256": payload.checksum_sha256,
-            "owner-id": user.id,
-        },
     )
 
     log_event(db, actor_user_id=user.id, action="FILE_INIT", file_id=file_obj.id, request=request)

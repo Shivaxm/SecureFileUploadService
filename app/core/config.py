@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     redis_url: str
 
     minio_endpoint: str
+    minio_public_endpoint: str | None = "http://localhost:9000"
     minio_access_key: str
     minio_secret_key: str
     minio_bucket: str

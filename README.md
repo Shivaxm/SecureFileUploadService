@@ -42,6 +42,7 @@ Prereqs on your host:
 - jq (install via `brew install jq`) — or see Python fallback below
 - sha256: use `shasum -a 256` on macOS (or `sha256sum` if available)
 - A file to upload (example uses `hello.txt`; create it with `echo "hello world" > hello.txt`)
+- Host access to MinIO: presigned URLs are signed against `http://localhost:9000` (set in `.env.example` via `MINIO_PUBLIC_ENDPOINT`). If you change the host/port, update that env var before `make up`.
 
 ```bash
 # 1) Register
@@ -62,12 +63,9 @@ INIT=$(curl -s -X POST http://localhost:8000/files/init \
   -d '{"original_filename":"hello.txt","content_type":"text/plain","checksum_sha256":"'$CHECKSUM'"}')
 UPLOAD_URL=$(echo "$INIT" | jq -r .upload_url)
 FILE_ID=$(echo "$INIT" | jq -r .file_id)
-HDR_CT="Content-Type: text/plain"
-HDR_CSUM="x-amz-meta-checksum-sha256: $CHECKSUM"
-HDR_OWNER="x-amz-meta-owner-id: me@example.com"
 
-# 4) PUT to presigned URL
-curl -X PUT "$UPLOAD_URL" -H "$HDR_CT" -H "$HDR_CSUM" -H "$HDR_OWNER" --data-binary @hello.txt
+# 4) PUT to presigned URL (no extra headers needed now)
+curl -X PUT "$UPLOAD_URL" -H "Content-Type: text/plain" --data-binary @hello.txt
 
 # 5) Complete
 curl -X POST http://localhost:8000/files/$FILE_ID/complete -H "Authorization: Bearer $TOKEN"
