@@ -36,7 +36,16 @@ make migrate
 API: http://localhost:8000
 
 ## Demo (exact commands)
-```
+Prereqs on your host:
+- Docker running (docker compose)
+- curl
+- jq (install via `brew install jq`) — or see Python fallback below
+- sha256: use `shasum -a 256` on macOS (or `sha256sum` if available)
+
+```bash
+# 0) Prepare a file
+echo "hello world" > hello.txt
+
 # 1) Register
 curl -X POST http://localhost:8000/auth/register \
   -H "Content-Type: application/json" \
@@ -48,28 +57,46 @@ TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
   -d '{"email":"me@example.com","password":"pass1234"}' | jq -r .access_token)
 
 # 3) Init upload
-CHECKSUM=$(printf 'hello world' | sha256sum | awk '{print $1}')
+CHECKSUM=$(shasum -a 256 hello.txt | awk '{print $1}')
 INIT=$(curl -s -X POST http://localhost:8000/files/init \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"original_filename":"hello.txt","content_type":"text/plain","checksum_sha256":"'$CHECKSUM'"}')
-UPLOAD_URL=$(echo $INIT | jq -r .upload_url)
-FILE_ID=$(echo $INIT | jq -r .file_id)
+UPLOAD_URL=$(echo "$INIT" | jq -r .upload_url)
+FILE_ID=$(echo "$INIT" | jq -r .file_id)
 HDR_CT="Content-Type: text/plain"
 HDR_CSUM="x-amz-meta-checksum-sha256: $CHECKSUM"
 HDR_OWNER="x-amz-meta-owner-id: me@example.com"
 
 # 4) PUT to presigned URL
-curl -X PUT "$UPLOAD_URL" -H "$HDR_CT" -H "$HDR_CSUM" -H "$HDR_OWNER" --data-binary @"./hello.txt"
+curl -X PUT "$UPLOAD_URL" -H "$HDR_CT" -H "$HDR_CSUM" -H "$HDR_OWNER" --data-binary @hello.txt
 
 # 5) Complete
 curl -X POST http://localhost:8000/files/$FILE_ID/complete -H "Authorization: Bearer $TOKEN"
 
-# 6) Run scan (either worker already running, or run once manually)
-docker compose run --rm worker python -c "from app.services.scanner import scan_file; scan_file('$FILE_ID')"  # or let worker process it
+# 6) Run scan (either worker running, or trigger once)
+docker compose run --rm worker python -c "from app.services.scanner import scan_file; scan_file('$FILE_ID')"
 
 # 7) Get download URL
 curl -X POST http://localhost:8000/files/$FILE_ID/download-url -H "Authorization: Bearer $TOKEN"
+```
+
+Python-only fallback (no jq/sha256 tools):
+```bash
+CHECKSUM=$(python - <<'PY'
+import hashlib
+data = open("hello.txt","rb").read()
+print(hashlib.sha256(data).hexdigest())
+PY
+)
+
+TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"me@example.com","password":"pass1234"}' | python - <<'PY'
+import sys, json
+print(json.load(sys.stdin)["access_token"])
+PY
+)
 ```
 
 ## Testing
