@@ -2,6 +2,12 @@
 
 FastAPI + Postgres + MinIO + Redis + RQ service for secure, presigned uploads with checksum verification, sniffing, audit logs, rate limits, and quotas.
 
+## Key features
+- **Presigned uploads** keep the API off the file data path (bandwidth-friendly) while enforcing server-side rules.
+- **Scan-gated downloads**: files are inaccessible until policy checks pass (checksum + MIME sniff + rules).
+- **Security controls**: RBAC/owner checks, short-lived presigns, audit logs, rate limits, and quotas.
+- **Async scanning** with Redis/RQ (at-least-once) + idempotent worker retries.
+
 ## Architecture (ASCII)
 ```
 [Client] --(auth/register/login)--> [FastAPI]
