@@ -84,8 +84,9 @@ class StorageClient:
 
     def get_object_range(self, bucket: str, key: str, byte_range: str) -> bytes | None:
         try:
-            obj = self.client_internal.get_object(Bucket=bucket, Key=key, Range=byte_range)
+            obj = self.client_internal.get_object(
+                Bucket=bucket, Key=key, Range=byte_range
+            )
             return obj["Body"].read()
         except ClientError:
             return None
-

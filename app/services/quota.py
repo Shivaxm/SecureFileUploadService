@@ -10,7 +10,7 @@ MAX_BYTES = 2_000_000_000
 
 def utcnow_naive() -> dt.datetime:
     """UTC 'now' as a naive datetime (matches our DB timestamp columns)."""
-    return dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
+    return dt.datetime.now(dt.UTC).replace(tzinfo=None)
 
 
 class QuotaService:

@@ -37,7 +37,9 @@ async def register(
 ):
     existing = db.query(models.User).filter_by(email=payload.email).first()
     if existing:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
+        )
     user = models.User(
         email=payload.email,
         hashed_password=get_password_hash(payload.password),
@@ -58,7 +60,8 @@ async def login(
 ):
     user = db.query(models.User).filter_by(email=payload.email).first()
     if not user or not verify_password(payload.password, user.hashed_password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
+        )
     token = create_access_token({"sub": str(user.id)})
     return TokenResponse(access_token=token)
-

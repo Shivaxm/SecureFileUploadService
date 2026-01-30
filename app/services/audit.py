@@ -26,4 +26,3 @@ def log_event(  # noqa: PLR0913
     )
     db.add(event)
     db.commit()
-

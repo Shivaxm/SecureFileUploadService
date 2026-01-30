@@ -1,8 +1,8 @@
 import hashlib
+from urllib.parse import urlparse, urlunparse
 
 import httpx
 import pytest
-from urllib.parse import urlparse, urlunparse
 
 from app.db import models
 from app.db.session import SessionLocal

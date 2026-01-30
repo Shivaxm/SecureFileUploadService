@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 from app.api import deps
 from app.core.rate_limit import rate_limit_user
 from app.db import models
-from app.services.quota import QuotaService
 from app.services.audit import log_event
+from app.services.quota import QuotaService
 from app.services.scanner import ALLOWED_CONTENT_TYPES, enqueue_scan
 from app.services.storage import StorageClient
 
@@ -25,7 +25,7 @@ _RL_DOWNLOAD_URL_DEP = Depends(rate_limit_user("files_download_url", 30, 60))
 
 def utcnow_naive() -> dt.datetime:
     """UTC 'now' as a naive datetime (matches our DB timestamp columns)."""
-    return dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
+    return dt.datetime.now(dt.UTC).replace(tzinfo=None)
 
 
 class InitRequest(BaseModel):

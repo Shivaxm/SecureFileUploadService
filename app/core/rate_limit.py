@@ -1,5 +1,5 @@
-from collections.abc import Callable
 import time
+from collections.abc import Callable
 
 import redis
 

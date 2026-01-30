@@ -14,9 +14,7 @@ pwd_context = CryptContext(
 
 def create_access_token(payload: dict) -> str:
     to_encode = payload.copy()
-    expire = dt.datetime.now(dt.timezone.utc) + dt.timedelta(
-        seconds=settings.jwt_expires_seconds
-    )
+    expire = dt.datetime.now(dt.UTC) + dt.timedelta(seconds=settings.jwt_expires_seconds)
     to_encode["exp"] = expire
     return jwt.encode(to_encode, settings.jwt_secret, algorithm=ALGORITHM)
 

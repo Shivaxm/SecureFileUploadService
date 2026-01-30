@@ -11,7 +11,11 @@ class FileState(str, Enum):
 
 
 ALLOWED_TRANSITIONS: dict[FileState, set[FileState]] = {
-    FileState.INITIATED: {FileState.UPLOADED, FileState.REJECTED, FileState.QUARANTINED},
+    FileState.INITIATED: {
+        FileState.UPLOADED,
+        FileState.REJECTED,
+        FileState.QUARANTINED,
+    },
     FileState.UPLOADED: {FileState.SCANNING, FileState.ACTIVE, FileState.QUARANTINED},
     FileState.SCANNING: {FileState.ACTIVE, FileState.QUARANTINED},
     FileState.ACTIVE: set(),
@@ -22,4 +26,3 @@ ALLOWED_TRANSITIONS: dict[FileState, set[FileState]] = {
 
 def can_transition(current: FileState, target: FileState) -> bool:
     return target in ALLOWED_TRANSITIONS.get(current, set())
-

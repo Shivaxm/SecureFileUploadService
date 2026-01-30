@@ -17,4 +17,3 @@ async def live():
 async def ready():
     # TODO: check DB, Redis, MinIO connectivity
     return {"status": "degraded", "details": "readiness checks not implemented"}
-

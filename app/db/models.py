@@ -63,10 +63,14 @@ class FileObject(Base):
     checksum_verified = Column(Boolean, default=False, nullable=False)
     size_bytes = Column(Integer, nullable=True)
     sniffed_content_type = Column(String, nullable=True)
-    state = Column(Enum(FileObjectState), default=FileObjectState.INITIATED, nullable=False)
+    state = Column(
+        Enum(FileObjectState), default=FileObjectState.INITIATED, nullable=False
+    )
     upload_expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=dt.datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=dt.datetime.utcnow, onupdate=dt.datetime.utcnow)
+    updated_at = Column(
+        DateTime, default=dt.datetime.utcnow, onupdate=dt.datetime.utcnow
+    )
 
     owner = relationship("User", back_populates="files")
 
@@ -90,5 +94,6 @@ class UsageCounter(Base):
     user_id = Column(String, ForeignKey("users.id"), primary_key=True)
     files_count = Column(Integer, nullable=False, default=0)
     bytes_stored = Column(BigInteger, nullable=False, default=0)
-    updated_at = Column(DateTime, default=dt.datetime.utcnow, onupdate=dt.datetime.utcnow)
-
+    updated_at = Column(
+        DateTime, default=dt.datetime.utcnow, onupdate=dt.datetime.utcnow
+    )

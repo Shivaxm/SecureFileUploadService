@@ -1,10 +1,8 @@
-import asyncio
-
 import boto3
+from httpx import AsyncClient
 import pytest
 import pytest_asyncio
 import redis
-from httpx import AsyncClient
 from sqlalchemy import text
 
 from app.core.config import settings

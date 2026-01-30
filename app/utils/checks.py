@@ -15,4 +15,3 @@ def compute_checksum(data: bytes, algorithm: str = "sha256") -> str:
 def sniff_mime(data: bytes) -> str:
     # TODO: support streaming detection
     return magic.from_buffer(data, mime=True)
-

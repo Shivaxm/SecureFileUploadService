@@ -5,7 +5,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+    )
 
     app_name: str = "secure-file-upload-service"
     debug: bool = Field(default=False, alias="APP_DEBUG")
@@ -28,10 +30,10 @@ class Settings(BaseSettings):
     rate_limit_default: int = 100
     quota_default_bytes: int = 1_073_741_824
 
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
 
 
 settings = get_settings()
-
