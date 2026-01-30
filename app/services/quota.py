@@ -54,4 +54,3 @@ class QuotaService:
         counter.bytes_stored = max(0, counter.bytes_stored - (file_size or 0))
         counter.updated_at = utcnow_naive()
         self.db.commit()
-

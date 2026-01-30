@@ -2,7 +2,6 @@ import time
 from collections.abc import Callable
 
 import redis
-
 from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -35,7 +34,11 @@ def rate_limit_user(route: str, limit: int, window_seconds: int):
     async def dependency(request: Request):
         redis_client = _get_redis()
         user_id = getattr(getattr(request, "state", None), "user_id", None)
-        if not user_id and hasattr(request, "user") and getattr(request.user, "id", None):
+        if (
+            not user_id
+            and hasattr(request, "user")
+            and getattr(request.user, "id", None)
+        ):
             user_id = request.user.id
         if not user_id:
             # fallback to client ip if no user context; still protect
@@ -56,4 +59,3 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable):
         response = await call_next(request)
         return response
-

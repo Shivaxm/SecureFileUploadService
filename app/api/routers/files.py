@@ -112,7 +112,13 @@ async def init_upload(
         expires_in=15 * 60,
     )
 
-    log_event(db, actor_user_id=user.id, action="FILE_INIT", file_id=file_obj.id, request=request)
+    log_event(
+        db,
+        actor_user_id=user.id,
+        action="FILE_INIT",
+        file_id=file_obj.id,
+        request=request,
+    )
 
     return InitResponse(
         file_id=file_obj.id,
@@ -133,19 +139,30 @@ async def complete_upload(  # noqa: PLR0912
 ):
     file_obj: models.FileObject | None = db.get(models.FileObject, file_id)
     if not file_obj:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="File not found"
+        )
     if user.role != models.UserRole.admin and file_obj.owner_id != user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     if file_obj.state != models.FileObjectState.INITIATED:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Upload not in INITIATED state")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Upload not in INITIATED state",
+        )
     if file_obj.upload_expires_at and file_obj.upload_expires_at < utcnow_naive():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Upload request expired")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Upload request expired"
+        )
 
     storage = StorageClient()
     try:
         head = storage.head_object(file_obj.bucket, file_obj.object_key)
     except storage.not_found_exc as exc:
-        error_code = getattr(exc, "response", {}).get("Error", {}).get("Code") if hasattr(exc, "response") else None
+        error_code = (
+            getattr(exc, "response", {}).get("Error", {}).get("Code")
+            if hasattr(exc, "response")
+            else None
+        )
         if error_code in {"404", "NoSuchKey", "NotFound"}:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Object not uploaded"
@@ -169,14 +186,22 @@ async def complete_upload(  # noqa: PLR0912
             action="UPLOAD_REJECTED",
             file_id=file_obj.id,
             request=request,
-            metadata={"reason": "checksum_mismatch", "expected": file_obj.checksum_sha256, "got": computed},
+            metadata={
+                "reason": "checksum_mismatch",
+                "expected": file_obj.checksum_sha256,
+                "got": computed,
+            },
         )
-        return CompleteResponse(state=file_obj.state, sniffed_content_type=file_obj.sniffed_content_type)
+        return CompleteResponse(
+            state=file_obj.state, sniffed_content_type=file_obj.sniffed_content_type
+        )
 
     file_obj.checksum_verified = True
 
     # Sniff content from first bytes
-    sample = storage.get_object_range(file_obj.bucket, file_obj.object_key, byte_range="bytes=0-16383")
+    sample = storage.get_object_range(
+        file_obj.bucket, file_obj.object_key, byte_range="bytes=0-16383"
+    )
     sniffed = None
     if sample:
         try:
@@ -187,7 +212,10 @@ async def complete_upload(  # noqa: PLR0912
             sniffed = None
     file_obj.sniffed_content_type = sniffed
 
-    if sniffed and sniffed.split(";")[0] != file_obj.declared_content_type.split(";")[0]:
+    if (
+        sniffed
+        and sniffed.split(";")[0] != file_obj.declared_content_type.split(";")[0]
+    ):
         file_obj.state = models.FileObjectState.QUARANTINED
         db.commit()
         log_event(
@@ -209,7 +237,11 @@ async def complete_upload(  # noqa: PLR0912
             action="UPLOAD_QUARANTINED",
             file_id=file_obj.id,
             request=request,
-            metadata={"reason": "disallowed_type", "sniffed": sniffed, "declared": file_obj.declared_content_type},
+            metadata={
+                "reason": "disallowed_type",
+                "sniffed": sniffed,
+                "declared": file_obj.declared_content_type,
+            },
         )
         return CompleteResponse(state=file_obj.state, sniffed_content_type=sniffed)
 
@@ -235,7 +267,9 @@ async def get_file(
 ):
     file_obj = db.get(models.FileObject, file_id)
     if not file_obj:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="File not found"
+        )
     if user.role != models.UserRole.admin and file_obj.owner_id != user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     return file_obj
@@ -251,14 +285,27 @@ async def download_url(
 ):
     file_obj = db.get(models.FileObject, file_id)
     if not file_obj:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="File not found"
+        )
     if user.role != models.UserRole.admin and file_obj.owner_id != user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-    if file_obj.state != models.FileObjectState.ACTIVE and user.role != models.UserRole.admin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="File not available for download")
+    if (
+        file_obj.state != models.FileObjectState.ACTIVE
+        and user.role != models.UserRole.admin
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="File not available for download",
+        )
 
     storage = StorageClient()
     url = storage.generate_presigned_get(file_obj.object_key, expires=300)
-    log_event(db, actor_user_id=user.id, action="DOWNLOAD_URL_ISSUED", file_id=file_obj.id, request=request)
+    log_event(
+        db,
+        actor_user_id=user.id,
+        action="DOWNLOAD_URL_ISSUED",
+        file_id=file_obj.id,
+        request=request,
+    )
     return DownloadUrlResponse(download_url=url, expires_in=300)
-

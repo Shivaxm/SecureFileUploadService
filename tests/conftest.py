@@ -1,14 +1,13 @@
 import boto3
-from httpx import AsyncClient
 import pytest
 import pytest_asyncio
 import redis
-from sqlalchemy import text
-
 from app.core.config import settings
 from app.db.models import Base
 from app.db.session import engine
 from app.main import app
+from httpx import AsyncClient
+from sqlalchemy import text
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -55,4 +54,3 @@ def flush_redis():
 async def client():
     async with AsyncClient(app=app, base_url="http://testserver") as c:
         yield c
-

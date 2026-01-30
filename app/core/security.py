@@ -14,7 +14,9 @@ pwd_context = CryptContext(
 
 def create_access_token(payload: dict) -> str:
     to_encode = payload.copy()
-    expire = dt.datetime.now(dt.UTC) + dt.timedelta(seconds=settings.jwt_expires_seconds)
+    expire = dt.datetime.now(dt.UTC) + dt.timedelta(
+        seconds=settings.jwt_expires_seconds
+    )
     to_encode["exp"] = expire
     return jwt.encode(to_encode, settings.jwt_secret, algorithm=ALGORITHM)
 
@@ -32,4 +34,3 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
-
