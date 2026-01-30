@@ -70,7 +70,7 @@ SCANNING -> QUARANTINED (policy/size/type fail) -> (optional delete later)
 Run the integration test suite:
 ```bash
 make test
-
+```
 
 ## Run locally
 ```
