@@ -35,6 +35,43 @@ SCANNING -> QUARANTINED (policy/size/type fail) -> (optional delete later)
 - Audit logging: actions recorded with actor, IP, UA.
 - Rate limiting + quotas: Redis fixed-window limits + per-user usage caps.
 
+## Key metrics (verifiable) + quick verification
+
+- **API surface:** 9 endpoints (auth, upload lifecycle, health, download gating)  
+  Verify: `rg "@router\\.(get|post|put|delete)" app/api/routers -n`
+
+- **Topology:** 5 docker-compose services (postgres, redis, minio, api, worker)  
+  Verify: `docker compose config --services`
+
+- **Lifecycle model:** 6-state file lifecycle (explicit state machine; only `ACTIVE` can download)  
+  Verify: `rg "FileState" -n app`
+
+- **Presign TTLs:** upload 15m, download 5m  
+  Verify: `rg "expires_in=15 \\* 60|expires=300" -n app/api/routers/files.py`
+
+- **Sniffing:** reads first 16KB (`bytes=0-16383`) to detect MIME mismatch without downloading full objects  
+  Verify: `rg "bytes=0-16383" -n app`
+
+- **Worker retries:** RQ max=3 with backoff `[10, 30, 60]` seconds (idempotent scan)  
+  Verify: `rg "Retry\\(max=3" -n app`
+
+- **Rate limits:** per-endpoint limits (register/login/init/complete/download-url)  
+  Verify: `rg "rate_limit_(ip|user)\\(" -n app/api/routers`
+
+- **Quotas:** 200 files / 2GB per user  
+  Verify: `rg "MAX_(FILES|BYTES)" -n app`
+
+- **Policy:** allowlist of 4 content types; max scan size 50MB  
+  Verify: `rg "ALLOWED_CONTENT_TYPES|MAX_SIZE_BYTES" -n app`
+
+- **Tests:** 9 integration tests covering happy-path + abuse/failure cases  
+  Verify: `rg "^async def test_" -n tests/integration/test_upload_flow.py | wc -l`
+
+Run the integration test suite:
+```bash
+make test
+
+
 ## Run locally
 ```
 cp .env.example .env
