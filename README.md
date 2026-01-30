@@ -1,5 +1,7 @@
 # Secure File Upload Service
 
+[![CI](https://github.com/Shivaxm/SecureFileUploadService/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Shivaxm/SecureFileUploadService/actions/workflows/ci.yml)
+
 FastAPI + Postgres + MinIO + Redis + RQ service for secure, presigned uploads with checksum verification, sniffing, audit logs, rate limits, and quotas.
 
 ## Key features

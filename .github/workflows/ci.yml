@@ -9,16 +9,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install deps
-        run: pip install -r requirements.txt
-      - name: Lint
-        run: |
-          ruff check app tests
-          black --check app tests
+      - name: Prepare env
+        run: cp .env.example .env
+
+      - name: Build images
+        run: docker compose build api worker
+
       - name: Start services
         run: |
           docker compose up -d postgres redis minio
@@ -27,16 +23,15 @@ jobs:
           for i in {1..30}; do docker compose exec -T postgres pg_isready -U postgres && break || sleep 2; done
           for i in {1..30}; do docker compose exec -T redis redis-cli ping && break || sleep 2; done
           for i in {1..30}; do curl -f http://localhost:9000/minio/health/ready && break || sleep 2; done
+
+      - name: Migrate
+        run: docker compose run --rm -e PYTHONPATH=/app api alembic upgrade head
+
+      - name: Lint
+        run: docker compose run --rm api sh -lc "ruff check app tests && black --check app tests"
+
       - name: Tests
-        env:
-          DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/app
-          REDIS_URL: redis://localhost:6379/0
-          MINIO_ENDPOINT: http://localhost:9000
-          MINIO_ACCESS_KEY: minioadmin
-          MINIO_SECRET_KEY: minioadmin
-          MINIO_BUCKET: uploads
-          JWT_SECRET: ci-secret
-        run: pytest -q
+        run: docker compose run --rm api sh -lc "pytest -q"
       - name: Down
         if: always()
         run: docker compose down -v
