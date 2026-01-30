@@ -1,6 +1,8 @@
 import datetime as dt
-from jose import jwt, JWTError
+
+from jose import JWTError, jwt
 from passlib.context import CryptContext
+
 from app.core.config import settings
 
 ALGORITHM = settings.jwt_algorithm
@@ -12,7 +14,9 @@ pwd_context = CryptContext(
 
 def create_access_token(payload: dict) -> str:
     to_encode = payload.copy()
-    expire = dt.datetime.utcnow() + dt.timedelta(seconds=settings.jwt_expires_seconds)
+    expire = dt.datetime.now(dt.timezone.utc) + dt.timedelta(
+        seconds=settings.jwt_expires_seconds
+    )
     to_encode["exp"] = expire
     return jwt.encode(to_encode, settings.jwt_secret, algorithm=ALGORITHM)
 

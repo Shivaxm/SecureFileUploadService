@@ -1,10 +1,12 @@
 from typing import Any
-from sqlalchemy.orm import Session
+
 from fastapi import Request
+from sqlalchemy.orm import Session
+
 from app.db import models
 
 
-def log_event(
+def log_event(  # noqa: PLR0913
     db: Session,
     actor_user_id: str | None,
     action: str,

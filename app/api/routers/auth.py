@@ -1,12 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
+
 from app.api import deps
+from app.core.rate_limit import rate_limit_ip
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.db import models
-from app.core.rate_limit import rate_limit_ip
 
 router = APIRouter()
+
+_DB_DEP = Depends(deps.get_db)
+_RL_REGISTER_DEP = Depends(rate_limit_ip("auth_register", 3, 60))
+_RL_LOGIN_DEP = Depends(rate_limit_ip("auth_login", 5, 60))
 
 
 class RegisterRequest(BaseModel):
@@ -27,8 +32,8 @@ class TokenResponse(BaseModel):
 @router.post("/register", response_model=TokenResponse)
 async def register(
     payload: RegisterRequest,
-    db: Session = Depends(deps.get_db),
-    _: None = Depends(rate_limit_ip("auth_register", 3, 60)),
+    db: Session = _DB_DEP,
+    _: None = _RL_REGISTER_DEP,
 ):
     existing = db.query(models.User).filter_by(email=payload.email).first()
     if existing:
@@ -48,8 +53,8 @@ async def register(
 @router.post("/login", response_model=TokenResponse)
 async def login(
     payload: LoginRequest,
-    db: Session = Depends(deps.get_db),
-    _: None = Depends(rate_limit_ip("auth_login", 5, 60)),
+    db: Session = _DB_DEP,
+    _: None = _RL_LOGIN_DEP,
 ):
     user = db.query(models.User).filter_by(email=payload.email).first()
     if not user or not verify_password(payload.password, user.hashed_password):

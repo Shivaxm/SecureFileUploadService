@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+
 from app.api.routers import auth, files, health
 from app.core.config import settings
 from app.core.logging import configure_logging

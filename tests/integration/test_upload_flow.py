@@ -1,9 +1,18 @@
 import hashlib
+
 import httpx
 import pytest
-from app.db.session import SessionLocal
+from urllib.parse import urlparse, urlunparse
+
 from app.db import models
+from app.db.session import SessionLocal
 from app.services.scanner import scan_file
+
+HTTP_200_OK = 200
+HTTP_204_NO_CONTENT = 204
+HTTP_400_BAD_REQUEST = 400
+HTTP_403_FORBIDDEN = 403
+HTTP_429_TOO_MANY_REQUESTS = 429
 
 
 async def register_and_get_token(client, email: str = "user@example.com", password: str = "pass1234") -> str:
@@ -18,9 +27,24 @@ def auth_headers(token: str) -> dict[str, str]:
 
 
 async def upload_via_presigned(url: str, headers: dict[str, str], content: bytes):
+    # When tests run inside Docker, "localhost" in a presigned URL refers to the
+    # container itself, not the MinIO service. Rewrite to the docker network host.
+    parsed = urlparse(url)
+    if parsed.hostname in {"localhost", "127.0.0.1"}:
+        netloc = "minio:9000"
+        if parsed.username or parsed.password:
+            auth = ""
+            if parsed.username:
+                auth += parsed.username
+            if parsed.password:
+                auth += f":{parsed.password}"
+            netloc = f"{auth}@{netloc}"
+        parsed = parsed._replace(netloc=netloc)
+        url = urlunparse(parsed)
+
     async with httpx.AsyncClient() as http_client:
         res = await http_client.put(url, content=content, headers=headers)
-        assert res.status_code in {200, 204}
+        assert res.status_code in {HTTP_200_OK, HTTP_204_NO_CONTENT}
 
 
 @pytest.mark.asyncio
@@ -42,7 +66,7 @@ async def test_init_returns_presigned_and_row(client):
             "checksum_sha256": checksum,
         },
     )
-    assert resp.status_code == 200
+    assert resp.status_code == HTTP_200_OK
     body = resp.json()
     assert "upload_url" in body
     file_id = body["file_id"]
@@ -69,7 +93,7 @@ async def test_complete_fails_if_object_not_uploaded(client):
     )
     file_id = init_resp.json()["file_id"]
     complete = await client.post(f"/files/{file_id}/complete", headers=auth_headers(token))
-    assert complete.status_code == 400
+    assert complete.status_code == HTTP_400_BAD_REQUEST
 
 
 @pytest.mark.asyncio
@@ -89,11 +113,11 @@ async def test_complete_rejects_checksum_mismatch(client):
     await upload_via_presigned(body["upload_url"], body["headers_to_include"], b"wrong-content")
 
     complete = await client.post(f"/files/{body['file_id']}/complete", headers=auth_headers(token))
-    assert complete.status_code == 200
+    assert complete.status_code == HTTP_200_OK
     assert complete.json()["state"] == models.FileObjectState.REJECTED.value
 
     download = await client.post(f"/files/{body['file_id']}/download-url", headers=auth_headers(token))
-    assert download.status_code == 403
+    assert download.status_code == HTTP_403_FORBIDDEN
 
 
 @pytest.mark.asyncio
@@ -114,11 +138,11 @@ async def test_complete_quarantines_on_sniff_mismatch(client):
     await upload_via_presigned(body["upload_url"], body["headers_to_include"], content)
 
     complete = await client.post(f"/files/{body['file_id']}/complete", headers=auth_headers(token))
-    assert complete.status_code == 200
+    assert complete.status_code == HTTP_200_OK
     assert complete.json()["state"] == models.FileObjectState.QUARANTINED.value
 
     download = await client.post(f"/files/{body['file_id']}/download-url", headers=auth_headers(token))
-    assert download.status_code == 403
+    assert download.status_code == HTTP_403_FORBIDDEN
 
 
 @pytest.mark.asyncio
@@ -139,7 +163,7 @@ async def test_happy_path_scan_and_download(client):
     await upload_via_presigned(init_body["upload_url"], init_body["headers_to_include"], content)
 
     complete = await client.post(f"/files/{init_body['file_id']}/complete", headers=auth_headers(token))
-    assert complete.status_code == 200
+    assert complete.status_code == HTTP_200_OK
     assert complete.json()["state"] == models.FileObjectState.SCANNING.value
 
     # Run scan synchronously
@@ -156,7 +180,7 @@ async def test_happy_path_scan_and_download(client):
     db.close()
 
     download = await client.post(f"/files/{init_body['file_id']}/download-url", headers=auth_headers(token))
-    assert download.status_code == 200
+    assert download.status_code == HTTP_200_OK
     assert "download_url" in download.json()
 
 
@@ -168,7 +192,7 @@ async def test_rate_limit_login(client):
     for _ in range(6):
         resp = await client.post("/auth/login", json={"email": "rl@example.com", "password": "pass1234"})
         last_status = resp.status_code
-    assert last_status == 429
+    assert last_status == HTTP_429_TOO_MANY_REQUESTS
 
 
 @pytest.mark.asyncio
@@ -187,7 +211,7 @@ async def test_rate_limit_files_init(client):
             },
         )
         last_status = resp.status_code
-    assert last_status == 429
+    assert last_status == HTTP_429_TOO_MANY_REQUESTS
 
 
 @pytest.mark.asyncio
@@ -209,5 +233,5 @@ async def test_quota_blocks_init_when_at_limit(client):
             "checksum_sha256": checksum,
         },
     )
-    assert resp.status_code == 403
+    assert resp.status_code == HTTP_403_FORBIDDEN
 

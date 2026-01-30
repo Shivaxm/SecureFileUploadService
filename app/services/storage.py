@@ -1,6 +1,9 @@
+from contextlib import suppress
 from dataclasses import dataclass
+
 import boto3
 from botocore.exceptions import ClientError
+
 from app.core.config import settings
 
 
@@ -38,18 +41,15 @@ class StorageClient:
         try:
             self.client_internal.head_bucket(Bucket=self.bucket)
         except ClientError:
-            try:
+            # Bucket creation may fail if already created by a race; ignore
+            with suppress(ClientError):
                 self.client_internal.create_bucket(Bucket=self.bucket)
-            except ClientError:
-                # Bucket creation may fail if already created by a race; ignore
-                pass
 
     def generate_presigned_put(
         self,
         key: str,
         content_type: str,
         expires_in: int = 3600,
-        extra_metadata: dict[str, str] | None = None,
     ) -> PresignedUpload:
         url = self.client_public.generate_presigned_url(
             "put_object",

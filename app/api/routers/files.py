@@ -1,18 +1,31 @@
+import datetime as dt
 import hashlib
 import uuid
-import datetime as dt
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
 from app.api import deps
-from app.db import models
-from app.services.storage import StorageClient
-from app.services.audit import log_event
-from app.services.scanner import enqueue_scan, ALLOWED_CONTENT_TYPES
-from app.services.quota import QuotaService
 from app.core.rate_limit import rate_limit_user
+from app.db import models
+from app.services.quota import QuotaService
+from app.services.audit import log_event
+from app.services.scanner import ALLOWED_CONTENT_TYPES, enqueue_scan
+from app.services.storage import StorageClient
 
 router = APIRouter()
+
+_DB_DEP = Depends(deps.get_db)
+_CURRENT_USER_DEP = Depends(deps.get_current_user)
+_RL_INIT_DEP = Depends(rate_limit_user("files_init", 10, 60))
+_RL_COMPLETE_DEP = Depends(rate_limit_user("files_complete", 20, 60))
+_RL_DOWNLOAD_URL_DEP = Depends(rate_limit_user("files_download_url", 30, 60))
+
+
+def utcnow_naive() -> dt.datetime:
+    """UTC 'now' as a naive datetime (matches our DB timestamp columns)."""
+    return dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
 
 
 class InitRequest(BaseModel):
@@ -62,11 +75,11 @@ class DownloadUrlResponse(BaseModel):
 async def init_upload(
     payload: InitRequest,
     request: Request,
-    db: Session = Depends(deps.get_db),
-    user: models.User = Depends(deps.get_current_user),
-    _: None = Depends(rate_limit_user("files_init", 10, 60)),
+    db: Session = _DB_DEP,
+    user: models.User = _CURRENT_USER_DEP,
+    _: None = _RL_INIT_DEP,
 ):
-    expires_at = dt.datetime.utcnow() + dt.timedelta(minutes=15)
+    expires_at = utcnow_naive() + dt.timedelta(minutes=15)
     object_key = f"{uuid.uuid4()}_{payload.original_filename.replace(' ', '_')}"
 
     from app.core.config import settings  # imported lazily to avoid cycle
@@ -84,8 +97,10 @@ async def init_upload(
 
     try:
         QuotaService(db).enforce_init(user.id)
-    except PermissionError:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="quota exceeded")
+    except PermissionError as err:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="quota exceeded"
+        ) from err
     db.add(file_obj)
     db.commit()
     db.refresh(file_obj)
@@ -109,12 +124,12 @@ async def init_upload(
 
 
 @router.post("/{file_id}/complete", response_model=CompleteResponse)
-async def complete_upload(
+async def complete_upload(  # noqa: PLR0912
     file_id: str,
     request: Request,
-    db: Session = Depends(deps.get_db),
-    user: models.User = Depends(deps.get_current_user),
-    _: None = Depends(rate_limit_user("files_complete", 20, 60)),
+    db: Session = _DB_DEP,
+    user: models.User = _CURRENT_USER_DEP,
+    _: None = _RL_COMPLETE_DEP,
 ):
     file_obj: models.FileObject | None = db.get(models.FileObject, file_id)
     if not file_obj:
@@ -123,7 +138,7 @@ async def complete_upload(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     if file_obj.state != models.FileObjectState.INITIATED:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Upload not in INITIATED state")
-    if file_obj.upload_expires_at and file_obj.upload_expires_at < dt.datetime.utcnow():
+    if file_obj.upload_expires_at and file_obj.upload_expires_at < utcnow_naive():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Upload request expired")
 
     storage = StorageClient()
@@ -132,7 +147,9 @@ async def complete_upload(
     except storage.not_found_exc as exc:
         error_code = getattr(exc, "response", {}).get("Error", {}).get("Code") if hasattr(exc, "response") else None
         if error_code in {"404", "NoSuchKey", "NotFound"}:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Object not uploaded")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Object not uploaded"
+            ) from exc
         raise
 
     file_obj.size_bytes = head.get("ContentLength")
@@ -213,8 +230,8 @@ async def complete_upload(
 @router.get("/{file_id}", response_model=FileDetail)
 async def get_file(
     file_id: str,
-    db: Session = Depends(deps.get_db),
-    user: models.User = Depends(deps.get_current_user),
+    db: Session = _DB_DEP,
+    user: models.User = _CURRENT_USER_DEP,
 ):
     file_obj = db.get(models.FileObject, file_id)
     if not file_obj:
@@ -228,9 +245,9 @@ async def get_file(
 async def download_url(
     file_id: str,
     request: Request,
-    db: Session = Depends(deps.get_db),
-    user: models.User = Depends(deps.get_current_user),
-    _: None = Depends(rate_limit_user("files_download_url", 30, 60)),
+    db: Session = _DB_DEP,
+    user: models.User = _CURRENT_USER_DEP,
+    _: None = _RL_DOWNLOAD_URL_DEP,
 ):
     file_obj = db.get(models.FileObject, file_id)
     if not file_obj:

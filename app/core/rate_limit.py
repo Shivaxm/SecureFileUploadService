@@ -1,8 +1,11 @@
-from typing import Callable
+from collections.abc import Callable
 import time
+
 import redis
-from fastapi import Request, HTTPException
+
+from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
+
 from app.core.config import settings
 
 
@@ -24,7 +27,6 @@ def rate_limit_ip(route: str, limit: int, window_seconds: int):
             redis_client.expire(key, window_seconds)
         if count > limit:
             raise HTTPException(status_code=429, detail="rate limit exceeded")
-        return None
 
     return dependency
 
@@ -45,7 +47,6 @@ def rate_limit_user(route: str, limit: int, window_seconds: int):
             redis_client.expire(key, window_seconds)
         if count > limit:
             raise HTTPException(status_code=429, detail="rate limit exceeded")
-        return None
 
     return dependency
 

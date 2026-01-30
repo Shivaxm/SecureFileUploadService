@@ -1,14 +1,14 @@
-from typing import Optional
+from redis import Redis
 from rq import Queue
 from rq.job import Retry
-from redis import Redis
 from sqlalchemy.orm import Session
+
 from app.core.config import settings
-from app.db.session import SessionLocal
 from app.db import models
-from app.services.storage import StorageClient
+from app.db.session import SessionLocal
 from app.services.audit import log_event
 from app.services.quota import QuotaService
+from app.services.storage import StorageClient
 
 SCAN_QUEUE = "scan"
 MAX_SIZE_BYTES = 50 * 1024 * 1024
@@ -34,10 +34,10 @@ def enqueue_scan(file_id: str):
     )
 
 
-def scan_file(file_id: str) -> str:
+def scan_file(file_id: str) -> str:  # noqa: PLR0911, PLR0912
     db: Session = SessionLocal()
     try:
-        file_obj: Optional[models.FileObject] = db.get(models.FileObject, file_id)
+        file_obj: models.FileObject | None = db.get(models.FileObject, file_id)
         if not file_obj:
             return "missing"
         if file_obj.state != models.FileObjectState.SCANNING:
@@ -55,7 +55,7 @@ def scan_file(file_id: str) -> str:
 
                 sniffed = magic.from_buffer(sample, mime=True)
             except Exception:
-                sniffed = sniffed
+                pass
         file_obj.sniffed_content_type = sniffed
 
         # Rules

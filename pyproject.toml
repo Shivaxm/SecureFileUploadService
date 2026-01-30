@@ -5,9 +5,11 @@ target-version = ["py311"]
 [tool.ruff]
 line-length = 88
 target-version = "py311"
+src = ["app", "tests"]
+
+[tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "DTZ", "TID", "ARG", "SIM", "PL"]
 ignore = ["E501"]
-src = ["app", "tests"]
 
 [tool.pytest.ini_options]
 addopts = "-q"
