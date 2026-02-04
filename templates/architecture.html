@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Architecture | Secure File Upload Service{% endblock %}
+{% block page %}architecture{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Architecture</h1>
+  <pre class="diagram">[Browser] -- POST /demo/start --> [FastAPI]
+[Browser] -- POST /files/init --> [FastAPI] -- presigned PUT --> [S3/MinIO]
+[Browser] -- PUT object -------------------------------> [S3/MinIO]
+[Browser] -- POST /files/{id}/complete --> [FastAPI] -- enqueue --> [Redis/RQ]
+[Worker] -- scan file bytes + policy --> [S3/MinIO + Postgres]
+[Browser] -- POST /files/{id}/download-url --> [FastAPI] -- presigned GET --> [S3/MinIO]</pre>
+  <ul>
+    <li>API issues short-lived presigned URLs, so large file bytes bypass API servers.</li>
+    <li>Object storage (S3-compatible MinIO) is source of truth for bytes.</li>
+    <li>Postgres stores ownership, status, checksums, and audit records.</li>
+    <li>Worker queue performs async scan/policy updates after upload completion.</li>
+    <li>Download endpoint checks authz + file status before issuing presigned GET.</li>
+    <li>Rate limits and quotas reduce abuse on auth and file endpoints.</li>
+    <li>Audit events capture action, actor, IP, user-agent, and metadata.</li>
+  </ul>
+</section>
+{% endblock %}

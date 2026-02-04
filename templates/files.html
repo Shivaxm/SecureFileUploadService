@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}My Files | Secure File Upload Service{% endblock %}
+{% block page %}files{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>My Files</h1>
+  <p id="filesMessage" class="message"></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Filename</th>
+        <th>Uploaded At</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="filesTableBody">
+      <tr><td colspan="4">Loading...</td></tr>
+    </tbody>
+  </table>
+</section>
+{% endblock %}

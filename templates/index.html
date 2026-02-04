@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Secure File Upload Service{% endblock %}
+{% block page %}home{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Secure File Upload Service</h1>
+  <p class="subtitle">Presigned uploads + scan-gated downloads + RBAC + audit logs</p>
+  <div class="actions">
+    <button id="startDemoBtn" class="btn btn-primary">Start Demo</button>
+    <a class="btn" href="/architecture">View Architecture</a>
+  </div>
+  <p id="homeMessage" class="message"></p>
+</section>
+
+<section class="card">
+  <h2>Why this is secure</h2>
+  <ul>
+    <li>Scan-gated downloads (pending, clean, quarantined)</li>
+    <li>SHA-256 integrity checks on uploaded bytes</li>
+    <li>RBAC and ownership checks to prevent IDOR</li>
+    <li>Rate limits and quotas to reduce abuse</li>
+    <li>Audit logs with metadata and redaction-safe details</li>
+  </ul>
+</section>
+
+<section class="banner">
+  <strong>Demo limits:</strong> files are temporary, max upload size is 10MB, and you should not upload sensitive data.
+</section>
+{% endblock %}

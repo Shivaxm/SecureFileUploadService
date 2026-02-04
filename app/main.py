@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 
-from app.api.routers import auth, demo, files, health
+from app.api.routers import auth, demo, files, health, ui
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.core.rate_limit import RateLimitMiddleware
@@ -13,7 +14,9 @@ def create_app() -> FastAPI:
     app.state.settings = settings
 
     app.add_middleware(RateLimitMiddleware)
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
+    app.include_router(ui.router, tags=["ui"])
     app.include_router(health.router, prefix="/health", tags=["health"])
     app.include_router(auth.router, prefix="/auth", tags=["auth"])
     app.include_router(demo.router, prefix="/demo", tags=["demo"])

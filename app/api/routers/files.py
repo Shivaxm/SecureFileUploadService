@@ -14,6 +14,7 @@ from app.services.audit import log_event
 from app.services.quota import QuotaService
 from app.services.scanner import ALLOWED_CONTENT_TYPES, enqueue_scan
 from app.services.storage import StorageClient
+from app.web import templates
 
 router = APIRouter()
 
@@ -342,10 +343,19 @@ async def complete_upload(  # noqa: PLR0912
 
 @router.get("", response_model=list[FileDetail])
 async def list_files(
+    request: Request,
     db: Session = _DB_DEP,
     current_user: models.User | None = _CURRENT_USER_OPTIONAL_DEP,
     demo_id: str | None = _DEMO_ID_DEP,
 ):
+    # Browser navigation to /files renders UI; API clients should use /files?format=json.
+    wants_html = (
+        "text/html" in request.headers.get("accept", "")
+        and request.query_params.get("format") != "json"
+    )
+    if wants_html:
+        return templates.TemplateResponse("files.html", {"request": request})
+
     if current_user:
         query = db.query(models.FileObject)
         if current_user.role != models.UserRole.admin:

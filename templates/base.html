@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Secure File Upload Service{% endblock %}</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body data-page="{% block page %}{% endblock %}">
+  <header class="topbar">
+    <a class="brand" href="/">Secure File Upload Service</a>
+    <nav>
+      <a href="/upload">Upload</a>
+      <a href="/files">My Files</a>
+      <a href="/architecture">Architecture</a>
+    </nav>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
