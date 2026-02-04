@@ -11,6 +11,7 @@ HTTP_200_OK = 200
 HTTP_204_NO_CONTENT = 204
 HTTP_400_BAD_REQUEST = 400
 HTTP_403_FORBIDDEN = 403
+HTTP_404_NOT_FOUND = 404
 HTTP_429_TOO_MANY_REQUESTS = 429
 
 
@@ -257,3 +258,53 @@ async def test_quota_blocks_init_when_at_limit(client):
         },
     )
     assert resp.status_code == HTTP_403_FORBIDDEN
+
+
+@pytest.mark.asyncio
+async def test_demo_start_sets_cookie(client):
+    resp = await client.post("/demo/start")
+    assert resp.status_code == HTTP_200_OK
+    assert resp.json()["ok"] is True
+    assert "demo" in client.cookies
+
+
+@pytest.mark.asyncio
+async def test_demo_can_upload_list_and_download_isolated(client):
+    start = await client.post("/demo/start")
+    assert start.status_code == HTTP_200_OK
+
+    content = b"demo file"
+    checksum = hashlib.sha256(content).hexdigest()
+    init_resp = await client.post(
+        "/files/init",
+        json={
+            "original_filename": "demo.txt",
+            "content_type": "text/plain",
+            "checksum_sha256": checksum,
+            "size_bytes": len(content),
+        },
+    )
+    assert init_resp.status_code == HTTP_200_OK
+    init_body = init_resp.json()
+    await upload_via_presigned(
+        init_body["upload_url"], init_body["headers_to_include"], content
+    )
+
+    complete = await client.post(f"/files/{init_body['file_id']}/complete")
+    assert complete.status_code == HTTP_200_OK
+    assert complete.json()["state"] == models.FileObjectState.SCANNING.value
+
+    scan_file(init_body["file_id"])
+
+    listed = await client.get("/files")
+    assert listed.status_code == HTTP_200_OK
+    listed_ids = [item["id"] for item in listed.json()]
+    assert init_body["file_id"] in listed_ids
+
+    download = await client.post(f"/files/{init_body['file_id']}/download-url")
+    assert download.status_code == HTTP_200_OK
+
+    async with httpx.AsyncClient(app=client.app, base_url="http://testserver") as other:
+        await other.post("/demo/start")
+        hidden = await other.post(f"/files/{init_body['file_id']}/download-url")
+        assert hidden.status_code == HTTP_404_NOT_FOUND

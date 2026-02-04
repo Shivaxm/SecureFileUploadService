@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api import deps
 from app.core.rate_limit import rate_limit_user
+from app.core.security import get_password_hash
 from app.db import models
 from app.services.audit import log_event
 from app.services.quota import QuotaService
@@ -18,9 +19,12 @@ router = APIRouter()
 
 _DB_DEP = Depends(deps.get_db)
 _CURRENT_USER_DEP = Depends(deps.get_current_user)
+_CURRENT_USER_OPTIONAL_DEP = Depends(deps.get_current_user_optional)
+_DEMO_ID_DEP = Depends(deps.get_demo_id)
 _RL_INIT_DEP = Depends(rate_limit_user("files_init", 10, 60))
 _RL_COMPLETE_DEP = Depends(rate_limit_user("files_complete", 20, 60))
 _RL_DOWNLOAD_URL_DEP = Depends(rate_limit_user("files_download_url", 30, 60))
+DEMO_MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 
 def utcnow_naive() -> dt.datetime:
@@ -32,6 +36,7 @@ class InitRequest(BaseModel):
     original_filename: str
     content_type: str
     checksum_sha256: str
+    size_bytes: int | None = None
 
 
 class InitResponse(BaseModel):
@@ -71,36 +76,76 @@ class DownloadUrlResponse(BaseModel):
     expires_in: int
 
 
+def _require_demo_started(demo_id: str | None) -> str:
+    if not demo_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Start demo at POST /demo/start",
+        )
+    return demo_id
+
+
+def _get_or_create_demo_user(db: Session, demo_id: str) -> models.User:
+    demo_user = db.get(models.User, demo_id)
+    if demo_user:
+        return demo_user
+
+    demo_user = models.User(
+        id=demo_id,
+        email=f"demo-{demo_id}@demo.local",
+        hashed_password=get_password_hash(f"demo-{demo_id}"),
+        role=models.UserRole.user,
+    )
+    db.add(demo_user)
+    db.commit()
+    db.refresh(demo_user)
+    return demo_user
+
+
 @router.post("/init", response_model=InitResponse)
 async def init_upload(
     payload: InitRequest,
     request: Request,
     db: Session = _DB_DEP,
-    user: models.User = _CURRENT_USER_DEP,
+    current_user: models.User | None = _CURRENT_USER_OPTIONAL_DEP,
+    demo_id: str | None = _DEMO_ID_DEP,
     _: None = _RL_INIT_DEP,
 ):
     expires_at = utcnow_naive() + dt.timedelta(minutes=15)
     object_key = f"{uuid.uuid4()}_{payload.original_filename.replace(' ', '_')}"
+    actor_user_id = current_user.id if current_user else None
+    file_demo_id: str | None = None
 
     from app.core.config import settings  # imported lazily to avoid cycle
 
+    if current_user:
+        owner_id = current_user.id
+        try:
+            QuotaService(db).enforce_init(current_user.id)
+        except PermissionError as err:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="quota exceeded"
+            ) from err
+    else:
+        file_demo_id = _require_demo_started(demo_id)
+        if payload.size_bytes and payload.size_bytes > DEMO_MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="demo upload size exceeds 10MB limit",
+            )
+        owner_id = _get_or_create_demo_user(db, file_demo_id).id
+
     file_obj = models.FileObject(
-        owner_id=user.id,
+        owner_id=owner_id,
         bucket=settings.minio_bucket,
         object_key=object_key,
         original_filename=payload.original_filename,
         declared_content_type=payload.content_type,
         checksum_sha256=payload.checksum_sha256,
+        demo_id=file_demo_id,
         state=models.FileObjectState.INITIATED,
         upload_expires_at=expires_at,
     )
-
-    try:
-        QuotaService(db).enforce_init(user.id)
-    except PermissionError as err:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="quota exceeded"
-        ) from err
     db.add(file_obj)
     db.commit()
     db.refresh(file_obj)
@@ -114,7 +159,7 @@ async def init_upload(
 
     log_event(
         db,
-        actor_user_id=user.id,
+        actor_user_id=actor_user_id,
         action="FILE_INIT",
         file_id=file_obj.id,
         request=request,
@@ -134,7 +179,8 @@ async def complete_upload(  # noqa: PLR0912
     file_id: str,
     request: Request,
     db: Session = _DB_DEP,
-    user: models.User = _CURRENT_USER_DEP,
+    current_user: models.User | None = _CURRENT_USER_OPTIONAL_DEP,
+    demo_id: str | None = _DEMO_ID_DEP,
     _: None = _RL_COMPLETE_DEP,
 ):
     file_obj: models.FileObject | None = db.get(models.FileObject, file_id)
@@ -142,8 +188,21 @@ async def complete_upload(  # noqa: PLR0912
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="File not found"
         )
-    if user.role != models.UserRole.admin and file_obj.owner_id != user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    actor_user_id = current_user.id if current_user else None
+    if current_user:
+        if (
+            current_user.role != models.UserRole.admin
+            and file_obj.owner_id != current_user.id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
+            )
+    else:
+        resolved_demo_id = _require_demo_started(demo_id)
+        if file_obj.demo_id != resolved_demo_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="File not found"
+            )
     if file_obj.state != models.FileObjectState.INITIATED:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -170,6 +229,28 @@ async def complete_upload(  # noqa: PLR0912
         raise
 
     file_obj.size_bytes = head.get("ContentLength")
+    if (
+        file_obj.demo_id
+        and file_obj.size_bytes
+        and file_obj.size_bytes > DEMO_MAX_UPLOAD_BYTES
+    ):
+        file_obj.state = models.FileObjectState.QUARANTINED
+        db.commit()
+        log_event(
+            db,
+            actor_user_id=actor_user_id,
+            action="UPLOAD_QUARANTINED",
+            file_id=file_obj.id,
+            request=request,
+            metadata={
+                "reason": "demo_size_limit",
+                "size": file_obj.size_bytes,
+                "max": DEMO_MAX_UPLOAD_BYTES,
+            },
+        )
+        return CompleteResponse(
+            state=file_obj.state, sniffed_content_type=file_obj.sniffed_content_type
+        )
 
     # Compute checksum
     hasher = hashlib.sha256()
@@ -182,7 +263,7 @@ async def complete_upload(  # noqa: PLR0912
         db.commit()
         log_event(
             db,
-            actor_user_id=user.id,
+            actor_user_id=actor_user_id,
             action="UPLOAD_REJECTED",
             file_id=file_obj.id,
             request=request,
@@ -220,7 +301,7 @@ async def complete_upload(  # noqa: PLR0912
         db.commit()
         log_event(
             db,
-            actor_user_id=user.id,
+            actor_user_id=actor_user_id,
             action="UPLOAD_QUARANTINED",
             file_id=file_obj.id,
             request=request,
@@ -233,7 +314,7 @@ async def complete_upload(  # noqa: PLR0912
         db.commit()
         log_event(
             db,
-            actor_user_id=user.id,
+            actor_user_id=actor_user_id,
             action="UPLOAD_QUARANTINED",
             file_id=file_obj.id,
             request=request,
@@ -249,7 +330,7 @@ async def complete_upload(  # noqa: PLR0912
     db.commit()
     log_event(
         db,
-        actor_user_id=user.id,
+        actor_user_id=actor_user_id,
         action="UPLOAD_ENQUEUED",
         file_id=file_obj.id,
         request=request,
@@ -257,6 +338,27 @@ async def complete_upload(  # noqa: PLR0912
     )
     enqueue_scan(file_obj.id)
     return CompleteResponse(state=file_obj.state, sniffed_content_type=sniffed)
+
+
+@router.get("", response_model=list[FileDetail])
+async def list_files(
+    db: Session = _DB_DEP,
+    current_user: models.User | None = _CURRENT_USER_OPTIONAL_DEP,
+    demo_id: str | None = _DEMO_ID_DEP,
+):
+    if current_user:
+        query = db.query(models.FileObject)
+        if current_user.role != models.UserRole.admin:
+            query = query.filter(models.FileObject.owner_id == current_user.id)
+        return query.order_by(models.FileObject.created_at.desc()).all()
+
+    resolved_demo_id = _require_demo_started(demo_id)
+    return (
+        db.query(models.FileObject)
+        .filter(models.FileObject.demo_id == resolved_demo_id)
+        .order_by(models.FileObject.created_at.desc())
+        .all()
+    )
 
 
 @router.get("/{file_id}", response_model=FileDetail)
@@ -280,7 +382,8 @@ async def download_url(
     file_id: str,
     request: Request,
     db: Session = _DB_DEP,
-    user: models.User = _CURRENT_USER_DEP,
+    current_user: models.User | None = _CURRENT_USER_OPTIONAL_DEP,
+    demo_id: str | None = _DEMO_ID_DEP,
     _: None = _RL_DOWNLOAD_URL_DEP,
 ):
     file_obj = db.get(models.FileObject, file_id)
@@ -288,11 +391,21 @@ async def download_url(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="File not found"
         )
-    if user.role != models.UserRole.admin and file_obj.owner_id != user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    actor_user_id = current_user.id if current_user else None
+    if current_user:
+        if current_user.role != models.UserRole.admin and file_obj.owner_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
+            )
+    else:
+        resolved_demo_id = _require_demo_started(demo_id)
+        if file_obj.demo_id != resolved_demo_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="File not found"
+            )
     if (
         file_obj.state != models.FileObjectState.ACTIVE
-        and user.role != models.UserRole.admin
+        and (not current_user or current_user.role != models.UserRole.admin)
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -303,7 +416,7 @@ async def download_url(
     url = storage.generate_presigned_get(file_obj.object_key, expires=300)
     log_event(
         db,
-        actor_user_id=user.id,
+        actor_user_id=actor_user_id,
         action="DOWNLOAD_URL_ISSUED",
         file_id=file_obj.id,
         request=request,

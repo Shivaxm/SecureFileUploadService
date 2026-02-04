@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 
-from app.api.routers import auth, files, health
+from app.api.routers import auth, demo, files, health
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.core.rate_limit import RateLimitMiddleware
@@ -16,6 +16,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router, prefix="/health", tags=["health"])
     app.include_router(auth.router, prefix="/auth", tags=["auth"])
+    app.include_router(demo.router, prefix="/demo", tags=["demo"])
     app.include_router(files.router, prefix="/files", tags=["files"])
 
     @app.get("/_not_implemented")

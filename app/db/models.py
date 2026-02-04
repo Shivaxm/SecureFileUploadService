@@ -51,6 +51,7 @@ class FileObject(Base):
     __table_args__ = (
         UniqueConstraint("bucket", "object_key", name="uq_file_object_bucket_key"),
         Index("ix_file_objects_owner_created", "owner_id", "created_at"),
+        Index("ix_file_objects_demo_id", "demo_id"),
     )
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -60,6 +61,7 @@ class FileObject(Base):
     original_filename = Column(String, nullable=False)
     declared_content_type = Column(String, nullable=False)
     checksum_sha256 = Column(String, nullable=False)
+    demo_id = Column(String, nullable=True)
     checksum_verified = Column(Boolean, default=False, nullable=False)
     size_bytes = Column(Integer, nullable=True)
     sniffed_content_type = Column(String, nullable=True)

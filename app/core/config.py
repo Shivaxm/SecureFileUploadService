@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "secure-file-upload-service"
+    app_env: str = Field(default="dev", alias="ENV")
     debug: bool = Field(default=False, alias="APP_DEBUG")
     api_host: str = "0.0.0.0"
     api_port: int = 8000
