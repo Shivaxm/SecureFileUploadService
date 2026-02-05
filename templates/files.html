@@ -2,9 +2,23 @@
 {% block title %}My Files | Secure File Upload Service{% endblock %}
 {% block page %}files{% endblock %}
 {% block content %}
+{% if not request.cookies.get('demo') %}
+<section class="banner">
+  <strong>Demo not started.</strong> Start the demo to see your files.
+  <div class="actions">
+    <button class="btn btn-primary" data-action="start-demo" data-redirect="/upload" data-message-id="filesDemoMsg">Start Demo</button>
+    <span id="filesDemoMsg" class="message"></span>
+  </div>
+</section>
+{% endif %}
+
 <section class="card">
   <h1>My Files</h1>
   <p id="filesMessage" class="message"></p>
+  <div class="row">
+    <a class="btn" href="/upload">Upload a file</a>
+    <button id="filesRetryBtn" class="btn hidden" type="button">Retry</button>
+  </div>
   <table>
     <thead>
       <tr>
@@ -15,7 +29,11 @@
       </tr>
     </thead>
     <tbody id="filesTableBody">
-      <tr><td colspan="4">Loading...</td></tr>
+      {% if request.cookies.get('demo') %}
+        <tr><td colspan="4">Loading...</td></tr>
+      {% else %}
+        <tr><td colspan="4">Demo not started — click “Start Demo” above.</td></tr>
+      {% endif %}
     </tbody>
   </table>
 </section>

@@ -22,6 +22,33 @@ async function startDemo() {
   await api("/demo/start", { method: "POST" });
 }
 
+function initStartDemoButtons() {
+  const buttons = document.querySelectorAll('[data-action="start-demo"]');
+  if (!buttons.length) return;
+
+  buttons.forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const redirect = btn.dataset.redirect || "/upload";
+      const messageId = btn.dataset.messageId;
+      const message = messageId ? document.getElementById(messageId) : null;
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      if (message) message.textContent = "Starting demo...";
+      btn.textContent = "Starting...";
+
+      try {
+        await startDemo();
+        window.location.href = redirect;
+      } catch (err) {
+        const msg = err && err.message ? err.message : "Could not start demo";
+        if (message) message.textContent = msg;
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }
+    });
+  });
+}
+
 async function sha256Hex(file) {
   const buf = await file.arrayBuffer();
   const digest = await crypto.subtle.digest("SHA-256", buf);
@@ -88,6 +115,14 @@ function initUploadPage() {
   const resultName = document.getElementById("resultFileName");
   const resultStatus = document.getElementById("resultStatus");
 
+  // Default UI state: don't show PENDING until an upload is started.
+  if (result) result.classList.add("hidden");
+  if (resultName) resultName.textContent = "-";
+  if (resultStatus) {
+    resultStatus.textContent = "Ready";
+    resultStatus.className = "badge";
+  }
+
   button.addEventListener("click", async () => {
     const file = input.files && input.files[0];
     if (!file) {
@@ -112,6 +147,11 @@ function initUploadPage() {
         }),
       });
       const initBody = await initRes.json();
+
+      // Show result area as soon as the upload is initiated.
+      result.classList.remove("hidden");
+      resultName.textContent = file.name;
+      setBadge(resultStatus, "SCANNING");
 
       message.textContent = "Uploading file to storage...";
       await uploadBinary(
@@ -151,7 +191,8 @@ async function requestDownload(fileId, messageNode) {
 function renderFilesTable(files, tbody, message) {
   tbody.innerHTML = "";
   if (!files.length) {
-    tbody.innerHTML = '<tr><td colspan="4">No files yet.</td></tr>';
+    tbody.innerHTML =
+      '<tr><td colspan="4">No files yet — <a href="/upload">upload one</a>.</td></tr>';
     return;
   }
 
@@ -197,6 +238,7 @@ function initFilesPage() {
   const tbody = document.getElementById("filesTableBody");
   if (!tbody) return;
   const message = document.getElementById("filesMessage");
+  const retryBtn = document.getElementById("filesRetryBtn");
 
   const load = async () => {
     try {
@@ -205,14 +247,39 @@ function initFilesPage() {
       const files = await res.json();
       renderFilesTable(files, tbody, message);
       message.textContent = "";
-    } catch (err) { tbody.innerHTML = '<tr><td colspan="4">Could not load files.</td></tr>'; message.textContent = err.message; }
+      if (retryBtn) retryBtn.classList.add("hidden");
+      return true;
+    } catch (err) {
+      const msg = err && err.message ? err.message : "Could not load files.";
+      const demoNotStarted = msg.includes("Start demo at POST /demo/start");
+      tbody.innerHTML = demoNotStarted
+        ? '<tr><td colspan="4">Demo not started — click “Start Demo” above.</td></tr>'
+        : '<tr><td colspan="4">Could not load files.</td></tr>';
+      message.textContent = demoNotStarted ? "Demo not started." : msg;
+    }
+    if (retryBtn) retryBtn.classList.remove("hidden");
+    return false;
   };
 
-  load();
-  setInterval(load, 5000);
+  const start = async () => {
+    const ok = await load();
+    if (ok) {
+      setInterval(load, 5000);
+      return;
+    }
+
+    // If demo isn't started, avoid leaving users stuck. The templates already
+    // show a Start Demo CTA; here we just stop the auto-poll.
+    if (retryBtn) {
+      retryBtn.onclick = () => load();
+    }
+  };
+
+  start();
 }
 
 (function init() {
+  initStartDemoButtons();
   const page = document.body.dataset.page;
   if (page === "home") initHomePage();
   if (page === "upload") initUploadPage();

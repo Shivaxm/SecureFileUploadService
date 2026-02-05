@@ -2,9 +2,18 @@
 {% block title %}Upload | Secure File Upload Service{% endblock %}
 {% block page %}upload{% endblock %}
 {% block content %}
+{% if not request.cookies.get('demo') %}
+<section class="banner">
+  <strong>Demo not started.</strong> If you’re not logged in, start the demo to upload and view files.
+  <div class="actions">
+    <button class="btn btn-primary" data-action="start-demo" data-redirect="/upload" data-message-id="uploadDemoMsg">Start Demo</button>
+    <span id="uploadDemoMsg" class="message"></span>
+  </div>
+</section>
+{% endif %}
+
 <section class="card">
   <h1>Upload File</h1>
-  <p>Start demo first if you are not authenticated.</p>
   <div class="row">
     <input id="fileInput" type="file" />
     <button id="uploadBtn" class="btn btn-primary">Upload</button>
@@ -18,7 +27,7 @@
   <p><strong>File:</strong> <span id="resultFileName">-</span></p>
   <p>
     <strong>Status:</strong>
-    <span id="resultStatus" class="badge">PENDING</span>
+    <span id="resultStatus" class="badge">Ready</span>
   </p>
   <a class="btn" href="/files">Go to My Files</a>
 </section>

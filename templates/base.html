@@ -6,13 +6,18 @@
   <title>{% block title %}Secure File Upload Service{% endblock %}</title>
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
-<body data-page="{% block page %}{% endblock %}">
+<body data-page="{% block page %}{% endblock %}" data-demo="{% if request.cookies.get('demo') %}1{% else %}0{% endif %}">
   <header class="topbar">
     <a class="brand" href="/">Secure File Upload Service</a>
     <nav>
       <a href="/upload">Upload</a>
       <a href="/files">My Files</a>
       <a href="/architecture">Architecture</a>
+      {% if request.cookies.get('demo') %}
+        <span class="mode-indicator">Mode: Demo</span>
+      {% else %}
+        <button class="btn btn-primary" data-action="start-demo" data-redirect="/upload">Start Demo</button>
+      {% endif %}
     </nav>
   </header>
   <main class="container">
