@@ -27,6 +27,10 @@ OFFICE_SNIFF_MIMES = (
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 )
+OFFICE_DECLARED_MIMES = (
+    "application/zip",
+    "application/octet-stream",
+)
 
 FILE_TYPE_POLICIES: dict[str, FileTypePolicy] = {
     ".pdf": FileTypePolicy(
@@ -75,6 +79,7 @@ FILE_TYPE_POLICIES: dict[str, FileTypePolicy] = {
         allowed=True,
         expected_mimes=(
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            *OFFICE_DECLARED_MIMES,
         ),
         sniff_mimes=OFFICE_SNIFF_MIMES,
         magic_prefixes=(b"PK\x03\x04",),
@@ -83,6 +88,7 @@ FILE_TYPE_POLICIES: dict[str, FileTypePolicy] = {
         allowed=True,
         expected_mimes=(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            *OFFICE_DECLARED_MIMES,
         ),
         sniff_mimes=OFFICE_SNIFF_MIMES,
         magic_prefixes=(b"PK\x03\x04",),
@@ -91,6 +97,7 @@ FILE_TYPE_POLICIES: dict[str, FileTypePolicy] = {
         allowed=True,
         expected_mimes=(
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            *OFFICE_DECLARED_MIMES,
         ),
         sniff_mimes=OFFICE_SNIFF_MIMES,
         magic_prefixes=(b"PK\x03\x04",),
@@ -128,64 +135,57 @@ def validate_upload_metadata(  # noqa: PLR0913
     sample_bytes: bytes | None,
     max_size_bytes: int | None = DEFAULT_MAX_SIZE_BYTES,
 ) -> ValidationResult:
+    reason: str | None = None
+    details: dict[str, str | int] | None = None
+
     resolved = _policy_for_filename(original_filename)
     if not resolved:
-        return ValidationResult(
-            ok=False,
-            reason="disallowed_extension",
-            details={"filename": original_filename},
-        )
-    ext, policy = resolved
-    if not policy.allowed:
-        return ValidationResult(ok=False, reason="disallowed_extension", details={"ext": ext})
+        reason = "disallowed_extension"
+        details = {"filename": original_filename}
+    else:
+        ext, policy = resolved
+        declared_base = _base_mime(declared_content_type)
+        sniffed_base = _base_mime(sniffed_content_type)
 
-    if max_size_bytes is not None and size_bytes is not None and size_bytes > max_size_bytes:
-        return ValidationResult(
-            ok=False,
-            reason="too_large",
-            details={"size": size_bytes, "max": max_size_bytes},
-        )
-    if policy.max_size_bytes and size_bytes is not None and size_bytes > policy.max_size_bytes:
-        return ValidationResult(
-            ok=False,
-            reason="type_size_limit",
-            details={"size": size_bytes, "max": policy.max_size_bytes, "ext": ext},
-        )
-
-    declared_base = _base_mime(declared_content_type)
-    if declared_base not in policy.expected_mimes:
-        return ValidationResult(
-            ok=False,
-            reason="declared_mime_mismatch",
-            details={"declared": declared_base or "none", "ext": ext},
-        )
-
-    sniffed_base = _base_mime(sniffed_content_type)
-    if sniffed_base is None:
-        return ValidationResult(ok=False, reason="sniff_missing", details={"ext": ext})
-    if sniffed_base not in policy.sniff_mimes:
-        return ValidationResult(
-            ok=False,
-            reason="sniff_mismatch",
-            details={
+        if not policy.allowed:
+            reason = "disallowed_extension"
+            details = {"ext": ext}
+        elif (
+            max_size_bytes is not None
+            and size_bytes is not None
+            and size_bytes > max_size_bytes
+        ):
+            reason = "too_large"
+            details = {"size": size_bytes, "max": max_size_bytes}
+        elif (
+            policy.max_size_bytes
+            and size_bytes is not None
+            and size_bytes > policy.max_size_bytes
+        ):
+            reason = "type_size_limit"
+            details = {"size": size_bytes, "max": policy.max_size_bytes, "ext": ext}
+        elif declared_base not in policy.expected_mimes:
+            reason = "declared_mime_mismatch"
+            details = {"declared": declared_base or "none", "ext": ext}
+        elif sniffed_base is None:
+            reason = "sniff_missing"
+            details = {"ext": ext}
+        elif sniffed_base not in policy.sniff_mimes:
+            reason = "sniff_mismatch"
+            details = {
                 "sniffed": sniffed_base,
                 "declared": declared_base or "none",
                 "ext": ext,
-            },
-        )
+            }
+        elif policy.magic_prefixes and not sample_bytes:
+            reason = "magic_missing"
+            details = {"ext": ext}
+        elif policy.magic_prefixes and not any(
+            sample_bytes.startswith(prefix) for prefix in policy.magic_prefixes
+        ):
+            reason = "magic_mismatch"
+            details = {"ext": ext, "sniffed": sniffed_base or "none"}
 
-    if policy.magic_prefixes:
-        if not sample_bytes:
-            return ValidationResult(
-                ok=False,
-                reason="magic_missing",
-                details={"ext": ext},
-            )
-        if not any(sample_bytes.startswith(prefix) for prefix in policy.magic_prefixes):
-            return ValidationResult(
-                ok=False,
-                reason="magic_mismatch",
-                details={"ext": ext, "sniffed": sniffed_base},
-            )
-
+    if reason:
+        return ValidationResult(ok=False, reason=reason, details=details)
     return ValidationResult(ok=True)

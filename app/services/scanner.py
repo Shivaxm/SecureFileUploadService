@@ -1,3 +1,7 @@
+import io
+import zipfile
+from pathlib import Path
+
 from redis import Redis
 from rq import Queue
 from rq.job import Retry
@@ -13,6 +17,33 @@ from app.services.storage import StorageClient
 
 SCAN_QUEUE = "scan"
 MAX_SIZE_BYTES = 50 * 1024 * 1024
+OFFICE_REQUIRED_ZIP_ENTRIES: dict[str, tuple[str, ...]] = {
+    ".docx": ("[Content_Types].xml", "word/document.xml"),
+    ".xlsx": ("[Content_Types].xml", "xl/workbook.xml"),
+    ".pptx": ("[Content_Types].xml", "ppt/presentation.xml"),
+}
+
+
+def _has_required_office_entries(
+    storage: StorageClient, bucket: str, key: str, extension: str
+) -> bool:
+    required = OFFICE_REQUIRED_ZIP_ENTRIES.get(extension)
+    if not required:
+        return True
+
+    payload = io.BytesIO()
+    for chunk in storage.iter_object(bucket, key):
+        payload.write(chunk)
+        if payload.tell() > MAX_SIZE_BYTES:
+            return False
+    payload.seek(0)
+
+    try:
+        with zipfile.ZipFile(payload) as archive:
+            names = set(archive.namelist())
+            return set(required).issubset(names)
+    except zipfile.BadZipFile:
+        return False
 
 
 def get_queue() -> Queue:
@@ -64,6 +95,21 @@ def scan_file(file_id: str) -> str:  # noqa: PLR0911, PLR0912
             max_size_bytes=MAX_SIZE_BYTES,
         )
         if validation.ok:
+            extension = Path(file_obj.original_filename).suffix.lower()
+            if not _has_required_office_entries(
+                storage, file_obj.bucket, file_obj.object_key, extension
+            ):
+                file_obj.state = models.FileObjectState.QUARANTINED
+                db.commit()
+                log_event(
+                    db,
+                    actor_user_id=file_obj.owner_id,
+                    action="SCAN_QUARANTINED",
+                    file_id=file_obj.id,
+                    metadata={"reason": "office_zip_invalid", "ext": extension},
+                )
+                return "quarantined"
+
             file_obj.state = models.FileObjectState.ACTIVE
             try:
                 QuotaService(db).increment_on_active(

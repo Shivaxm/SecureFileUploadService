@@ -1,5 +1,4 @@
 import pytest
-
 from app.services.file_type_policy import validate_upload_metadata
 
 
@@ -17,6 +16,12 @@ from app.services.file_type_policy import validate_upload_metadata
         (
             "file.docx",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/zip",
+            b"PK\x03\x04payload",
+        ),
+        (
+            "file.docx",
+            "application/octet-stream",
             "application/zip",
             b"PK\x03\x04payload",
         ),

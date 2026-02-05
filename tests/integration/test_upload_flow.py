@@ -1,4 +1,6 @@
 import hashlib
+import io
+import zipfile
 from urllib.parse import urlparse, urlunparse
 
 import httpx
@@ -27,6 +29,16 @@ async def register_and_get_token(
 
 def auth_headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
+
+
+def build_ooxml_zip(*entries: tuple[str, bytes]) -> bytes:
+    payload = io.BytesIO()
+    with zipfile.ZipFile(
+        payload, mode="w", compression=zipfile.ZIP_DEFLATED
+    ) as archive:
+        for name, content in entries:
+            archive.writestr(name, content)
+    return payload.getvalue()
 
 
 async def upload_via_presigned(url: str, headers: dict[str, str], content: bytes):
@@ -203,6 +215,75 @@ async def test_happy_path_scan_and_download(client):
     )
     assert download.status_code == HTTP_200_OK
     assert "download_url" in download.json()
+
+
+@pytest.mark.asyncio
+async def test_docx_octet_stream_is_accepted_and_activated(client):
+    token = await register_and_get_token(client, email="docx-ok@example.com")
+    content = build_ooxml_zip(
+        ("[Content_Types].xml", b"<Types/>"),
+        ("word/document.xml", b"<w:document/>"),
+    )
+    checksum = hashlib.sha256(content).hexdigest()
+    init_resp = await client.post(
+        "/files/init",
+        headers=auth_headers(token),
+        json={
+            "original_filename": "resume.docx",
+            "content_type": "application/octet-stream",
+            "checksum_sha256": checksum,
+        },
+    )
+    init_body = init_resp.json()
+    await upload_via_presigned(
+        init_body["upload_url"], init_body["headers_to_include"], content
+    )
+
+    complete = await client.post(
+        f"/files/{init_body['file_id']}/complete", headers=auth_headers(token)
+    )
+    assert complete.status_code == HTTP_200_OK
+    assert complete.json()["state"] == models.FileObjectState.SCANNING.value
+
+    scan_file(init_body["file_id"])
+
+    db = SessionLocal()
+    refreshed = db.get(models.FileObject, init_body["file_id"])
+    assert refreshed.state == models.FileObjectState.ACTIVE
+    db.close()
+
+
+@pytest.mark.asyncio
+async def test_docx_with_invalid_zip_structure_is_quarantined(client):
+    token = await register_and_get_token(client, email="docx-bad@example.com")
+    content = build_ooxml_zip(("random.txt", b"not-docx-layout"))
+    checksum = hashlib.sha256(content).hexdigest()
+    init_resp = await client.post(
+        "/files/init",
+        headers=auth_headers(token),
+        json={
+            "original_filename": "resume.docx",
+            "content_type": "application/octet-stream",
+            "checksum_sha256": checksum,
+        },
+    )
+    init_body = init_resp.json()
+    await upload_via_presigned(
+        init_body["upload_url"], init_body["headers_to_include"], content
+    )
+
+    complete = await client.post(
+        f"/files/{init_body['file_id']}/complete", headers=auth_headers(token)
+    )
+    assert complete.status_code == HTTP_200_OK
+    assert complete.json()["state"] == models.FileObjectState.SCANNING.value
+
+    scan_file(init_body["file_id"])
+
+    db = SessionLocal()
+    refreshed = db.get(models.FileObject, init_body["file_id"])
+    assert refreshed.state == models.FileObjectState.QUARANTINED
+    db.close()
 
 
 @pytest.mark.asyncio
