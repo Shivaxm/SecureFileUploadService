@@ -12,7 +12,12 @@ from app.core.security import get_password_hash
 from app.db import models
 from app.services.audit import log_event
 from app.services.quota import QuotaService
-from app.services.scanner import ALLOWED_CONTENT_TYPES, enqueue_scan
+from app.services.scanner import (
+    ALLOWED_CONTENT_TYPES,
+    OFFICE_ZIP_MIME_TYPES,
+    ZIP_MIME,
+    enqueue_scan,
+)
 from app.services.storage import StorageClient
 from app.web import templates
 
@@ -296,10 +301,13 @@ async def complete_upload(  # noqa: PLR0912, PLR0915
             sniffed = None
     file_obj.sniffed_content_type = sniffed
 
-    if (
-        sniffed
-        and sniffed.split(";")[0] != file_obj.declared_content_type.split(";")[0]
-    ):
+    declared_base = file_obj.declared_content_type.split(";")[0]
+    sniff_base = sniffed.split(";")[0] if sniffed else None
+    is_office_zip = declared_base in OFFICE_ZIP_MIME_TYPES and sniff_base in {
+        ZIP_MIME,
+        "application/octet-stream",
+    }
+    if sniffed and sniff_base != declared_base and not is_office_zip:
         file_obj.state = models.FileObjectState.QUARANTINED
         db.commit()
         log_event(
@@ -311,8 +319,7 @@ async def complete_upload(  # noqa: PLR0912, PLR0915
             metadata={"sniffed": sniffed, "declared": file_obj.declared_content_type},
         )
         return CompleteResponse(state=file_obj.state, sniffed_content_type=sniffed)
-
-    if sniffed and sniffed.split(";")[0] not in ALLOWED_CONTENT_TYPES:
+    if sniffed and sniff_base not in ALLOWED_CONTENT_TYPES and not is_office_zip:
         file_obj.state = models.FileObjectState.QUARANTINED
         db.commit()
         log_event(
