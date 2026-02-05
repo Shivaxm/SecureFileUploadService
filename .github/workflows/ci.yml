@@ -9,11 +9,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          clean: true
       - name: Prepare env
         run: cp .env.example .env
 
       - name: Build images
-        run: docker compose build api worker
+        run: docker compose build --pull --no-cache api worker
 
       - name: Start services
         run: |
@@ -25,14 +27,13 @@ jobs:
           for i in {1..30}; do curl -f http://localhost:9000/minio/health/ready && break || sleep 2; done
 
       - name: Migrate
-        run: docker compose run --rm -e PYTHONPATH=/app api alembic upgrade head
+        run: docker compose run --rm --build -e PYTHONPATH=/app api alembic upgrade head
 
       - name: Lint
-        run: docker compose run --rm api sh -lc "ruff check app tests && black --check app tests"
+        run: docker compose run --rm --build api sh -lc "ruff check app tests && black --check app tests"
 
       - name: Tests
-        run: docker compose run --rm api sh -lc "pytest -q"
+        run: docker compose run --rm --build api sh -lc "pytest -q"
       - name: Down
         if: always()
         run: docker compose down -v
-
