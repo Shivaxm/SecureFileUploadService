@@ -5,6 +5,7 @@ import httpx
 import pytest
 from app.db import models
 from app.db.session import SessionLocal
+from app.main import app
 from app.services.scanner import scan_file
 
 HTTP_200_OK = 200
@@ -304,7 +305,7 @@ async def test_demo_can_upload_list_and_download_isolated(client):
     download = await client.post(f"/files/{init_body['file_id']}/download-url")
     assert download.status_code == HTTP_200_OK
 
-    async with httpx.AsyncClient(app=client.app, base_url="http://testserver") as other:
+    async with httpx.AsyncClient(app=app, base_url="http://testserver") as other:
         await other.post("/demo/start")
         hidden = await other.post(f"/files/{init_body['file_id']}/download-url")
         assert hidden.status_code == HTTP_404_NOT_FOUND

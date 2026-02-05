@@ -34,12 +34,11 @@ def rate_limit_user(route: str, limit: int, window_seconds: int):
     async def dependency(request: Request):
         redis_client = _get_redis()
         user_id = getattr(getattr(request, "state", None), "user_id", None)
-        if (
-            not user_id
-            and hasattr(request, "user")
-            and getattr(request.user, "id", None)
-        ):
-            user_id = request.user.id
+        # Avoid request.user property access unless AuthenticationMiddleware is installed.
+        if not user_id and "user" in request.scope:
+            scope_user = request.scope.get("user")
+            if getattr(scope_user, "id", None):
+                user_id = scope_user.id
         if not user_id:
             # fallback to client ip if no user context; still protect
             ip = request.client.host if request.client else "unknown"
