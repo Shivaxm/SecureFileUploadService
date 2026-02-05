@@ -10,6 +10,12 @@ FastAPI + Postgres + MinIO + Redis + RQ service for secure, presigned uploads wi
 - **Security controls**: RBAC/owner checks, short-lived presigns, audit logs, rate limits, and quotas.
 - **Async scanning** with Redis/RQ (at-least-once) + idempotent worker retries.
 
+## Allowed file types
+Allowed extensions (server-enforced allowlist):
+- `.pdf`, `.txt`, `.csv`
+- `.png`, `.jpg`, `.jpeg`, `.gif`
+- `.docx`, `.xlsx`, `.pptx` (Office OpenXML; validated as ZIP containers and still scan-gated)
+
 ## Architecture (ASCII)
 ```
 [Client] --(auth/register/login)--> [FastAPI]
@@ -61,8 +67,8 @@ SCANNING -> QUARANTINED (policy/size/type fail) -> (optional delete later)
 - **Quotas:** 200 files / 2GB per user  
   Verify: `rg "MAX_(FILES|BYTES)" -n app`
 
-- **Policy:** allowlist of 4 content types; max scan size 50MB  
-  Verify: `rg "ALLOWED_CONTENT_TYPES|MAX_SIZE_BYTES" -n app`
+- **Policy:** extension+MIME allowlist (fail-closed) + max scan size 50MB  
+  Verify: `rg "FILE_TYPE_POLICIES|MAX_SIZE_BYTES" -n app`
 
 - **Tests:** 9 integration tests covering happy-path + abuse/failure cases  
   Verify: `rg "^async def test_" -n tests/integration/test_upload_flow.py | wc -l`
