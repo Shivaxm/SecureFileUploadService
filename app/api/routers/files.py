@@ -420,9 +420,8 @@ async def download_url(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="File not found"
             )
-    if (
-        file_obj.state != models.FileObjectState.ACTIVE
-        and (not current_user or current_user.role != models.UserRole.admin)
+    if file_obj.state != models.FileObjectState.ACTIVE and (
+        not current_user or current_user.role != models.UserRole.admin
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
