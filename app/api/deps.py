@@ -63,11 +63,15 @@ def _demo_secret() -> bytes:
     return settings.jwt_secret.encode("utf-8")
 
 
-def create_demo_token(demo_id: str, expires_in: int = DEMO_COOKIE_MAX_AGE_SECONDS) -> str:
+def create_demo_token(
+    demo_id: str, expires_in: int = DEMO_COOKIE_MAX_AGE_SECONDS
+) -> str:
     issued_at = int(time.time())
     payload = f"{demo_id}.{issued_at}.{expires_in}"
     signature = hmac.new(
-        _demo_secret(), payload.encode("utf-8"), hashlib.sha256
+        _demo_secret(),
+        payload.encode("utf-8"),
+        hashlib.sha256,
     ).hexdigest()
     token = f"{payload}.{signature}"
     return base64.urlsafe_b64encode(token.encode("utf-8")).decode("utf-8")
@@ -79,7 +83,9 @@ def verify_demo_token(token: str) -> str | None:
         demo_id, issued_at_str, expires_in_str, signature = decoded.split(".", 3)
         payload = f"{demo_id}.{issued_at_str}.{expires_in_str}"
         expected = hmac.new(
-            _demo_secret(), payload.encode("utf-8"), hashlib.sha256
+            _demo_secret(),
+            payload.encode("utf-8"),
+            hashlib.sha256,
         ).hexdigest()
         if not hmac.compare_digest(signature, expected):
             return None

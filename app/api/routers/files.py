@@ -407,7 +407,10 @@ async def download_url(
         )
     actor_user_id = current_user.id if current_user else None
     if current_user:
-        if current_user.role != models.UserRole.admin and file_obj.owner_id != current_user.id:
+        if (
+            current_user.role != models.UserRole.admin
+            and file_obj.owner_id != current_user.id
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
             )
