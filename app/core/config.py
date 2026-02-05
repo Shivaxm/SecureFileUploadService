@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,15 +18,35 @@ class Settings(BaseSettings):
     database_url: str
     redis_url: str
 
-    minio_endpoint: str
-    minio_public_endpoint: str | None = "http://localhost:9000"
-    minio_access_key: str
-    minio_secret_key: str
-    minio_bucket: str
+    # Storage settings support both legacy MINIO_* and deploy-time S3_* names.
+    minio_endpoint: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("S3_ENDPOINT", "MINIO_ENDPOINT"),
+    )
+    minio_public_endpoint: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("S3_PUBLIC_ENDPOINT", "MINIO_PUBLIC_ENDPOINT"),
+    )
+    minio_access_key: str = Field(
+        validation_alias=AliasChoices("S3_ACCESS_KEY_ID", "MINIO_ACCESS_KEY")
+    )
+    minio_secret_key: str = Field(
+        validation_alias=AliasChoices("S3_SECRET_ACCESS_KEY", "MINIO_SECRET_KEY")
+    )
+    minio_bucket: str = Field(
+        validation_alias=AliasChoices("S3_BUCKET", "MINIO_BUCKET")
+    )
+    s3_region: str | None = Field(
+        default=None, validation_alias=AliasChoices("S3_REGION", "MINIO_REGION")
+    )
+    storage_auto_create_bucket: bool = True
 
     jwt_secret: str
     jwt_algorithm: str = "HS256"
     jwt_expires_seconds: int = 3600
+
+    upload_presign_ttl_seconds: int = 15 * 60
+    download_presign_ttl_seconds: int = 5 * 60
 
     rate_limit_default: int = 100
     quota_default_bytes: int = 1_073_741_824

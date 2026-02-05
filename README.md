@@ -145,6 +145,9 @@ PY
 make test
 ```
 
+## Deployment
+- Local + public deployment runbook: `docs/DEPLOYMENT_RUNBOOK.md`
+
 ## Make targets
 - up / down / logs
 - migrate / revision

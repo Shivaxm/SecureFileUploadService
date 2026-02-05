@@ -18,20 +18,25 @@ class StorageClient:
         self.bucket = settings.minio_bucket
         internal_endpoint = settings.minio_endpoint
         public_endpoint = settings.minio_public_endpoint or internal_endpoint
+        common = {
+            "aws_access_key_id": settings.minio_access_key,
+            "aws_secret_access_key": settings.minio_secret_key,
+        }
+        if settings.s3_region:
+            common["region_name"] = settings.s3_region
 
-        self.client_internal = boto3.client(
-            "s3",
-            endpoint_url=internal_endpoint,
-            aws_access_key_id=settings.minio_access_key,
-            aws_secret_access_key=settings.minio_secret_key,
-        )
-        self.client_public = boto3.client(
-            "s3",
-            endpoint_url=public_endpoint,
-            aws_access_key_id=settings.minio_access_key,
-            aws_secret_access_key=settings.minio_secret_key,
-        )
-        self._ensure_bucket()
+        internal_kwargs = common.copy()
+        if internal_endpoint:
+            internal_kwargs["endpoint_url"] = internal_endpoint
+        self.client_internal = boto3.client("s3", **internal_kwargs)
+
+        public_kwargs = common.copy()
+        if public_endpoint:
+            public_kwargs["endpoint_url"] = public_endpoint
+        self.client_public = boto3.client("s3", **public_kwargs)
+
+        if settings.storage_auto_create_bucket:
+            self._ensure_bucket()
 
     @property
     def not_found_exc(self):

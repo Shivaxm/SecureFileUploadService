@@ -112,12 +112,14 @@ async def init_upload(
     demo_id: str | None = _DEMO_ID_DEP,
     _: None = _RL_INIT_DEP,
 ):
-    expires_at = utcnow_naive() + dt.timedelta(minutes=15)
+    from app.core.config import settings  # imported lazily to avoid cycle
+
+    expires_at = utcnow_naive() + dt.timedelta(
+        seconds=settings.upload_presign_ttl_seconds
+    )
     object_key = f"{uuid.uuid4()}_{payload.original_filename.replace(' ', '_')}"
     actor_user_id = current_user.id if current_user else None
     file_demo_id: str | None = None
-
-    from app.core.config import settings  # imported lazily to avoid cycle
 
     if current_user:
         owner_id = current_user.id
@@ -155,7 +157,7 @@ async def init_upload(
     presigned = storage.generate_presigned_put(
         key=file_obj.object_key,
         content_type=payload.content_type,
-        expires_in=15 * 60,
+        expires_in=settings.upload_presign_ttl_seconds,
     )
 
     log_event(
@@ -170,7 +172,7 @@ async def init_upload(
         file_id=file_obj.id,
         object_key=file_obj.object_key,
         upload_url=presigned.url,
-        expires_in=15 * 60,
+        expires_in=settings.upload_presign_ttl_seconds,
         headers_to_include=presigned.headers,
     )
 
@@ -396,6 +398,8 @@ async def download_url(
     demo_id: str | None = _DEMO_ID_DEP,
     _: None = _RL_DOWNLOAD_URL_DEP,
 ):
+    from app.core.config import settings  # imported lazily to avoid cycle
+
     file_obj = db.get(models.FileObject, file_id)
     if not file_obj:
         raise HTTPException(
@@ -423,7 +427,9 @@ async def download_url(
         )
 
     storage = StorageClient()
-    url = storage.generate_presigned_get(file_obj.object_key, expires=300)
+    url = storage.generate_presigned_get(
+        file_obj.object_key, expires=settings.download_presign_ttl_seconds
+    )
     log_event(
         db,
         actor_user_id=actor_user_id,
@@ -431,4 +437,6 @@ async def download_url(
         file_id=file_obj.id,
         request=request,
     )
-    return DownloadUrlResponse(download_url=url, expires_in=300)
+    return DownloadUrlResponse(
+        download_url=url, expires_in=settings.download_presign_ttl_seconds
+    )
