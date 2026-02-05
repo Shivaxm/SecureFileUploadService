@@ -425,8 +425,11 @@ async def download_url(
         )
 
     storage = StorageClient()
-    url = storage.generate_presigned_get(
-        file_obj.object_key, expires=settings.download_presign_ttl_seconds
+    url = storage.generate_presigned_get_download(
+        key=file_obj.object_key,
+        download_filename=file_obj.original_filename,
+        response_content_type=file_obj.declared_content_type,
+        expires=settings.download_presign_ttl_seconds,
     )
     log_event(
         db,

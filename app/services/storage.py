@@ -1,10 +1,14 @@
 from contextlib import suppress
 from dataclasses import dataclass
+from urllib.parse import quote
 
 import boto3
 from botocore.exceptions import ClientError
 
 from app.core.config import settings
+
+_ASCII_PRINTABLE_START = 32
+_ASCII_PRINTABLE_END = 127
 
 
 @dataclass
@@ -72,6 +76,46 @@ class StorageClient:
         return self.client_public.generate_presigned_url(
             "get_object",
             Params={"Bucket": self.bucket, "Key": key},
+            ExpiresIn=expires,
+        )
+
+    def generate_presigned_get_download(
+        self,
+        *,
+        key: str,
+        download_filename: str,
+        response_content_type: str | None = None,
+        expires: int = 3600,
+    ) -> str:
+        # Prevent header injection and path tricks; S3 will return this via
+        # `response-content-disposition` query param, not from our API response.
+        safe = (download_filename or "download").replace("\r", "").replace("\n", "")
+        safe = safe.split("/")[-1].split("\\")[-1]
+        safe_ascii = "".join(
+            (
+                ch
+                if _ASCII_PRINTABLE_START <= ord(ch) < _ASCII_PRINTABLE_END
+                and ch not in {'"', "\\"}
+                else "_"
+            )
+            for ch in safe
+        )
+        encoded = quote(safe, safe="")
+        disposition = (
+            f"attachment; filename=\"{safe_ascii}\"; filename*=UTF-8''{encoded}"
+        )
+
+        params: dict[str, str] = {
+            "Bucket": self.bucket,
+            "Key": key,
+            "ResponseContentDisposition": disposition,
+        }
+        if response_content_type:
+            params["ResponseContentType"] = response_content_type.split(";", 1)[0]
+
+        return self.client_public.generate_presigned_url(
+            "get_object",
+            Params=params,
             ExpiresIn=expires,
         )
 
