@@ -178,7 +178,7 @@ async def init_upload(
 
 
 @router.post("/{file_id}/complete", response_model=CompleteResponse)
-async def complete_upload(  # noqa: PLR0912
+async def complete_upload(  # noqa: PLR0912, PLR0915
     file_id: str,
     request: Request,
     db: Session = _DB_DEP,
