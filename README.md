@@ -2,13 +2,16 @@
 
 [![CI](https://github.com/Shivaxm/SecureFileUploadService/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Shivaxm/SecureFileUploadService/actions/workflows/ci.yml)
 
-FastAPI + Postgres + MinIO + Redis + RQ service for secure, presigned uploads with checksum verification, sniffing, audit logs, rate limits, and quotas.
+FastAPI + Postgres + S3 + Redis + RQ service for secure, presigned uploads with checksum verification, sniffing, audit logs, rate limits, and quotas (MinIO is used only for local Docker Compose).
+
+Deployed demo: `https://securefileuploadservice.onrender.com` (demo mode via `POST /demo/start` cookie).
 
 ## Key features
 - **Presigned uploads** keep the API off the file data path (bandwidth-friendly) while enforcing server-side rules.
 - **Scan-gated downloads**: files are inaccessible until policy checks pass (checksum + MIME sniff + rules).
 - **Security controls**: RBAC/owner checks, short-lived presigns, audit logs, rate limits, and quotas.
 - **Async scanning** with Redis/RQ (at-least-once) + idempotent worker retries.
+- **Production deployment**: API + worker deployed separately (web + background worker), backed by managed Postgres/Redis and S3.
 
 ## Allowed file types
 Allowed extensions (server-enforced allowlist):
@@ -19,11 +22,11 @@ Allowed extensions (server-enforced allowlist):
 ## Architecture (ASCII)
 ```
 [Client] --(auth/register/login)--> [FastAPI]
-[Client] --(init)--> [FastAPI] --(presign PUT)--> [MinIO URL]
-[Client] --(PUT object)--> [MinIO]
+[Client] --(init)--> [FastAPI] --(presign PUT)--> [S3 URL]
+[Client] --(PUT object)--> [S3]
 [Client] --(complete)--> [FastAPI] --(enqueue)--> [Redis/RQ]
-[Worker] --(scan_file)--> [MinIO + Postgres]
-[Client] --(download-url)--> [FastAPI] --(presign GET)--> [MinIO URL]
+[Worker] --(scan_file)--> [S3 + Postgres]
+[Client] --(download-url)--> [FastAPI] --(presign GET + Content-Disposition)--> [S3 URL]
 ```
 
 State machine (FileObject.state):
@@ -43,17 +46,17 @@ SCANNING -> QUARANTINED (policy/size/type fail) -> (optional delete later)
 
 ## Key metrics (verifiable) + quick verification
 
-- **API surface:** 9 endpoints (auth, upload lifecycle, health, download gating)  
+- **API surface:** 14 routes (auth, demo, upload lifecycle, UI pages, health)  
   Verify: `rg "@router\\.(get|post|put|delete)" app/api/routers -n`
 
-- **Topology:** 5 docker-compose services (postgres, redis, minio, api, worker)  
+- **Topology:** local dev uses 5 docker-compose services (postgres, redis, minio, api, worker); production uses S3 (no MinIO)  
   Verify: `docker compose config --services`
 
 - **Lifecycle model:** 6-state file lifecycle (explicit state machine; only `ACTIVE` can download)  
-  Verify: `rg "FileState" -n app`
+  Verify: `rg "FileObjectState" -n app/db/models.py`
 
 - **Presign TTLs:** upload 15m, download 5m  
-  Verify: `rg "expires_in=15 \\* 60|expires=300" -n app/api/routers/files.py`
+  Verify: `rg "upload_presign_ttl_seconds|download_presign_ttl_seconds" -n app/core/config.py`
 
 - **Sniffing:** reads first 16KB (`bytes=0-16383`) to detect MIME mismatch without downloading full objects  
   Verify: `rg "bytes=0-16383" -n app`
@@ -70,7 +73,7 @@ SCANNING -> QUARANTINED (policy/size/type fail) -> (optional delete later)
 - **Policy:** extension+MIME allowlist (fail-closed) + max scan size 50MB  
   Verify: `rg "FILE_TYPE_POLICIES|MAX_SIZE_BYTES" -n app`
 
-- **Tests:** 9 integration tests covering happy-path + abuse/failure cases  
+- **Tests:** 13 integration tests covering happy-path + abuse/failure cases (compose-backed Postgres/Redis/MinIO)  
   Verify: `rg "^async def test_" -n tests/integration/test_upload_flow.py | wc -l`
 
 Run the integration test suite:
@@ -93,7 +96,7 @@ Prereqs on your host:
 - jq (install via `brew install jq`) — or see Python fallback below
 - sha256: use `shasum -a 256` on macOS (or `sha256sum` if available)
 - A file to upload (example uses `hello.txt`; create it with `echo "hello world" > hello.txt`)
-- Host access to MinIO: presigned URLs are signed against `http://localhost:9000` (set in `.env.example` via `MINIO_PUBLIC_ENDPOINT`). If you change the host/port, update that env var before `make up`.
+- Local object storage uses MinIO for Docker Compose; production uses AWS S3. Presigned URLs are signed against `http://localhost:9000` for local (set in `.env.example` via `MINIO_PUBLIC_ENDPOINT`).
 
 ```bash
 # 1) Register
