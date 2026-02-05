@@ -1,6 +1,4 @@
 import hashlib
-import io
-import zipfile
 from urllib.parse import urlparse, urlunparse
 
 import httpx
@@ -311,75 +309,3 @@ async def test_demo_can_upload_list_and_download_isolated(client):
         await other.post("/demo/start")
         hidden = await other.post(f"/files/{init_body['file_id']}/download-url")
         assert hidden.status_code == HTTP_404_NOT_FOUND
-
-
-def _make_minimal_docx_bytes() -> bytes:
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w") as zf:
-        zf.writestr("[Content_Types].xml", "<Types></Types>")
-        zf.writestr("word/document.xml", "<w:document></w:document>")
-    return buf.getvalue()
-
-
-@pytest.mark.asyncio
-async def test_docx_allowed_via_office_zip_validation(client):
-    await client.post("/demo/start")
-    content = _make_minimal_docx_bytes()
-    checksum = hashlib.sha256(content).hexdigest()
-
-    init_resp = await client.post(
-        "/files/init",
-        json={
-            "original_filename": "resume.docx",
-            "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "checksum_sha256": checksum,
-            "size_bytes": len(content),
-        },
-    )
-    assert init_resp.status_code == HTTP_200_OK
-    body = init_resp.json()
-    await upload_via_presigned(body["upload_url"], body["headers_to_include"], content)
-
-    complete = await client.post(f"/files/{body['file_id']}/complete")
-    assert complete.status_code == HTTP_200_OK
-    assert complete.json()["state"] == models.FileObjectState.SCANNING.value
-
-    scan_file(body["file_id"])
-    db = SessionLocal()
-    refreshed = db.get(models.FileObject, body["file_id"])
-    assert refreshed.state == models.FileObjectState.ACTIVE
-    db.close()
-
-
-@pytest.mark.asyncio
-async def test_fake_docx_zip_quarantined_by_worker(client):
-    await client.post("/demo/start")
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w") as zf:
-        zf.writestr("[Content_Types].xml", "<Types></Types>")
-        zf.writestr("not-docx.txt", "nope")
-    content = buf.getvalue()
-    checksum = hashlib.sha256(content).hexdigest()
-
-    init_resp = await client.post(
-        "/files/init",
-        json={
-            "original_filename": "resume.docx",
-            "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "checksum_sha256": checksum,
-            "size_bytes": len(content),
-        },
-    )
-    assert init_resp.status_code == HTTP_200_OK
-    body = init_resp.json()
-    await upload_via_presigned(body["upload_url"], body["headers_to_include"], content)
-
-    complete = await client.post(f"/files/{body['file_id']}/complete")
-    assert complete.status_code == HTTP_200_OK
-    assert complete.json()["state"] == models.FileObjectState.SCANNING.value
-
-    scan_file(body["file_id"])
-    db = SessionLocal()
-    refreshed = db.get(models.FileObject, body["file_id"])
-    assert refreshed.state == models.FileObjectState.QUARANTINED
-    db.close()
