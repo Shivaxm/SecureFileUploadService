@@ -2,22 +2,195 @@
 {% block title %}Architecture | Secure File Upload Service{% endblock %}
 {% block page %}architecture{% endblock %}
 {% block content %}
-<section class="card">
-  <h1>Architecture</h1>
-  <pre class="diagram">[Browser] -- POST /demo/start --> [FastAPI]
-[Browser] -- POST /files/init --> [FastAPI] -- presigned PUT --> [S3/MinIO]
-[Browser] -- PUT object -------------------------------> [S3/MinIO]
-[Browser] -- POST /files/{id}/complete --> [FastAPI] -- enqueue --> [Redis/RQ]
-[Worker] -- scan file bytes + policy --> [S3/MinIO + Postgres]
-[Browser] -- POST /files/{id}/download-url --> [FastAPI] -- presigned GET --> [S3/MinIO]</pre>
-  <ul>
-    <li>API issues short-lived presigned URLs, so large file bytes bypass API servers.</li>
-    <li>Object storage (S3-compatible MinIO) is source of truth for bytes.</li>
-    <li>Postgres stores ownership, status, checksums, and audit records.</li>
-    <li>Worker queue performs async scan/policy updates after upload completion.</li>
-    <li>Download endpoint checks authz + file status before issuing presigned GET.</li>
-    <li>Rate limits and quotas reduce abuse on auth and file endpoints.</li>
-    <li>Audit events capture action, actor, IP, user-agent, and metadata.</li>
-  </ul>
+<section class="arch-header">
+  <h1>System Architecture</h1>
+  <p class="subtitle">Request lifecycle · data flow · security gates</p>
+</section>
+
+<section>
+  <div class="section-label">Request Flow</div>
+  <div class="flow">
+    <div class="flow-row">
+      <div class="step-num cyan">1</div>
+      <div class="step-card">
+        <div class="step-accent cyan"></div>
+        <div class="step-body">
+          <div class="step-actors">
+            <span class="actor client">Client</span>
+            <span class="arrow-icon">→</span>
+            <span class="actor api">FastAPI</span>
+          </div>
+          <div class="step-label"><strong>POST /demo/start</strong> (acquire demo JWT)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="connector"></div>
+
+    <div class="flow-row">
+      <div class="step-num blue">2</div>
+      <div class="step-card">
+        <div class="step-accent blue"></div>
+        <div class="step-body">
+          <div class="step-actors">
+            <span class="actor client">Client</span>
+            <span class="arrow-icon">→</span>
+            <span class="actor api">FastAPI</span>
+            <span class="arrow-icon">→</span>
+            <span class="actor s3">S3 / MinIO</span>
+          </div>
+          <div class="step-label"><strong>POST /files/init</strong> (presigned PUT URL)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="connector"></div>
+
+    <div class="flow-row">
+      <div class="step-num amber">3</div>
+      <div class="step-card">
+        <div class="step-accent amber"></div>
+        <div class="step-body">
+          <div class="step-actors">
+            <span class="actor client">Client</span>
+            <span class="arrow-icon">→</span>
+            <span class="actor s3">S3 / MinIO</span>
+          </div>
+          <div class="step-label"><strong>PUT (presigned)</strong> (direct upload to storage)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="connector"></div>
+
+    <div class="flow-row">
+      <div class="step-num purple">4</div>
+      <div class="step-card">
+        <div class="step-accent purple"></div>
+        <div class="step-body">
+          <div class="step-actors">
+            <span class="actor client">Client</span>
+            <span class="arrow-icon">→</span>
+            <span class="actor api">FastAPI</span>
+            <span class="arrow-icon">→</span>
+            <span class="actor redis">Redis / RQ</span>
+          </div>
+          <div class="step-label"><strong>POST /files/{id}/complete</strong> (enqueue scan)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="connector"></div>
+
+    <div class="flow-row">
+      <div class="step-num red">5</div>
+      <div class="step-card">
+        <div class="step-accent red"></div>
+        <div class="step-body">
+          <div class="step-actors">
+            <span class="actor worker">RQ Worker</span>
+            <span class="arrow-icon">→</span>
+            <span class="actor s3">S3 / MinIO</span>
+            <span class="arrow-icon">→</span>
+            <span class="actor pg">PostgreSQL</span>
+          </div>
+          <div class="step-label"><strong>Scan pipeline</strong> (SHA-256 + MIME check)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="connector"></div>
+
+    <div class="flow-row">
+      <div class="step-num green">6</div>
+      <div class="step-card">
+        <div class="step-accent green"></div>
+        <div class="step-body">
+          <div class="step-actors">
+            <span class="actor client">Client</span>
+            <span class="arrow-icon">→</span>
+            <span class="actor api">FastAPI</span>
+            <span class="arrow-icon">→</span>
+            <span class="actor s3">S3 / MinIO</span>
+          </div>
+          <div class="step-label"><strong>POST /files/{id}/download-url</strong> (presigned GET, only if clean)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="state-machine">
+  <div class="section-label">File State Machine</div>
+  <div class="states">
+    <div class="state-node pending">PENDING</div>
+    <span class="state-arrow">→</span>
+    <div class="state-node scanning">SCANNING</div>
+    <span class="state-arrow">→</span>
+    <div class="state-branch">
+      <div class="branch-row">
+        <span class="branch-label pass">pass</span>
+        <span class="state-arrow">→</span>
+        <div class="state-node clean">CLEAN</div>
+        <span class="state-arrow">→</span>
+        <div class="outcome allowed">✓ download allowed</div>
+      </div>
+      <div class="branch-row">
+        <span class="branch-label fail">fail</span>
+        <span class="state-arrow">→</span>
+        <div class="state-node quarantined">QUARANTINED</div>
+        <span class="state-arrow">→</span>
+        <div class="outcome blocked">✗ download blocked</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="controls">
+  <div class="section-label">Security Controls</div>
+  <div class="pills">
+    <span class="pill c1">SHA-256 integrity</span>
+    <span class="pill c2">Rate limiting</span>
+    <span class="pill c3">JWT + RBAC</span>
+    <span class="pill c4">MIME sniffing</span>
+    <span class="pill c5">Fail-closed quarantine</span>
+    <span class="pill c6">Ownership checks</span>
+    <span class="pill c1">Presigned URLs</span>
+    <span class="pill c3">Audit logs</span>
+  </div>
+</section>
+
+<section class="perf-row">
+  <div class="perf-card">
+    <div class="value">0.626s</div>
+    <div class="label">p50 processing latency</div>
+  </div>
+  <div class="perf-card">
+    <div class="value">0.811s</div>
+    <div class="label">p95 processing latency</div>
+  </div>
+  <div class="perf-card">
+    <div class="value">~261</div>
+    <div class="label">jobs / min throughput</div>
+  </div>
+</section>
+
+<section class="principles">
+  <div class="principle">
+    <h3>Zero-trust file handling</h3>
+    <p>Untrusted bytes go directly to object storage via presigned URLs, and downloads remain blocked until an explicit clean state.</p>
+  </div>
+  <div class="principle">
+    <h3>Fail-closed by default</h3>
+    <p>Checksum mismatch, policy mismatch, or scanner failures transition files to quarantine so no unsafe fallback path exists.</p>
+  </div>
+  <div class="principle">
+    <h3>Defense in depth</h3>
+    <p>AuthZ checks, rate limits, quotas, scan gating, and audit logging operate as independent controls that reinforce each other.</p>
+  </div>
+  <div class="principle">
+    <h3>Async processing pipeline</h3>
+    <p>Completion enqueues Redis/RQ work so user requests return quickly while workers process scan and state transitions in the background.</p>
+  </div>
 </section>
 {% endblock %}

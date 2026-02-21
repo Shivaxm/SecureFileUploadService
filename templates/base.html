@@ -3,12 +3,15 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{% block title %}Secure File Upload Service{% endblock %}</title>
+  <title>{% block title %}ScanGate — Secure File Upload Service{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body data-page="{% block page %}{% endblock %}" data-demo="{% if request.cookies.get('demo') %}1{% else %}0{% endif %}">
   <header class="topbar">
-    <a class="brand" href="/">Secure File Upload Service</a>
+    <a class="brand" href="/">ScanGate</a>
     <nav>
       <a href="/upload">Upload</a>
       <a href="/files">My Files</a>
