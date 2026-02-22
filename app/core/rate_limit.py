@@ -1,4 +1,3 @@
-import time
 from collections.abc import Callable
 
 import redis
@@ -12,17 +11,14 @@ def _get_redis():
     return redis.Redis.from_url(settings.redis_url)
 
 
-def _current_window(window_seconds: int) -> int:
-    return int(time.time() // window_seconds)
-
-
 def rate_limit_ip(route: str, limit: int, window_seconds: int):
     async def dependency(request: Request):
         redis_client = _get_redis()
         ip = request.client.host if request.client else "unknown"
-        key = f"rl:ip:{ip}:{route}:{_current_window(window_seconds)}"
+        key = f"rl:ip:{ip}:{route}"
         count = redis_client.incr(key)
-        if count == 1:
+        ttl = redis_client.ttl(key)
+        if count == 1 or ttl < 0:
             redis_client.expire(key, window_seconds)
         if count > limit:
             raise HTTPException(status_code=429, detail="rate limit exceeded")
@@ -43,9 +39,10 @@ def rate_limit_user(route: str, limit: int, window_seconds: int):
             # fallback to client ip if no user context; still protect
             ip = request.client.host if request.client else "unknown"
             user_id = f"ip-{ip}"
-        key = f"rl:user:{user_id}:{route}:{_current_window(window_seconds)}"
+        key = f"rl:user:{user_id}:{route}"
         count = redis_client.incr(key)
-        if count == 1:
+        ttl = redis_client.ttl(key)
+        if count == 1 or ttl < 0:
             redis_client.expire(key, window_seconds)
         if count > limit:
             raise HTTPException(status_code=429, detail="rate limit exceeded")
