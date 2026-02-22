@@ -1,10 +1,31 @@
-# Secure File Upload Service
+# ScanGate — Secure File Upload Service
 
 [![CI](https://github.com/Shivaxm/SecureFileUploadService/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Shivaxm/SecureFileUploadService/actions/workflows/ci.yml)
 
-FastAPI + Postgres + S3 + Redis + RQ service for secure, presigned uploads with checksum verification, sniffing, audit logs, rate limits, and quotas (MinIO is used only for local Docker Compose).
+FastAPI + Postgres + S3 + Redis + RQ service for secure, presigned uploads with scan-gated downloads, SHA-256 integrity checks, MIME sniffing, audit logs, and rate limits/quotas.
 
-Deployed demo: `https://securefileuploadservice.onrender.com` (demo mode via `POST /demo/start` cookie).
+Live demo (no signup): https://securefileuploadservice.onrender.com
+
+## Try it in ~10 seconds
+- Open the live demo, click **Start Demo** (sets a signed, HttpOnly demo cookie via `POST /demo/start`).
+- Upload a file, watch it transition from **PENDING** to **CLEAN**/**QUARANTINED**.
+- Download is only enabled when the file is **CLEAN**.
+
+## Architecture
+<img src="docs/architecture.svg" alt="ScanGate architecture diagram" width="100%" />
+
+<details>
+<summary>ASCII (quick skim)</summary>
+
+```
+[Client] --(auth/register/login)--> [FastAPI]
+[Client] --(init)--> [FastAPI] --(presign PUT)--> [S3 URL]
+[Client] --(PUT object)--> [S3]
+[Client] --(complete)--> [FastAPI] --(enqueue)--> [Redis/RQ]
+[Worker] --(scan_file)--> [S3 + Postgres]
+[Client] --(download-url)--> [FastAPI] --(presign GET + Content-Disposition)--> [S3 URL]
+```
+</details>
 
 ## Key features
 - **Presigned uploads** keep the API off the file data path (bandwidth-friendly) while enforcing server-side rules.
@@ -18,16 +39,6 @@ Allowed extensions (server-enforced allowlist):
 - `.pdf`, `.txt`, `.csv`
 - `.png`, `.jpg`, `.jpeg`, `.gif`
 - `.docx`, `.xlsx`, `.pptx` (Office OpenXML; validated as ZIP containers and still scan-gated)
-
-## Architecture (ASCII)
-```
-[Client] --(auth/register/login)--> [FastAPI]
-[Client] --(init)--> [FastAPI] --(presign PUT)--> [S3 URL]
-[Client] --(PUT object)--> [S3]
-[Client] --(complete)--> [FastAPI] --(enqueue)--> [Redis/RQ]
-[Worker] --(scan_file)--> [S3 + Postgres]
-[Client] --(download-url)--> [FastAPI] --(presign GET + Content-Disposition)--> [S3 URL]
-```
 
 State machine (FileObject.state):
 ```

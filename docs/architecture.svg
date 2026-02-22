@@ -1,0 +1,216 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" font-family="'SF Mono', 'Fira Code', 'Cascadia Code', monospace">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;display=swap');
+    </style>
+    <!-- Subtle grid pattern -->
+    <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
+      <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#1a1f2e" stroke-width="0.5"/>
+    </pattern>
+    <!-- Glow filter for active elements -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <!-- Drop shadow -->
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+    <!-- Arrow marker -->
+    <marker id="arrow" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="10" markerHeight="7" orient="auto-start-reverse">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#4ecdc4"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="10" markerHeight="7" orient="auto-start-reverse">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#ff6b6b"/>
+    </marker>
+    <marker id="arrow-amber" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="10" markerHeight="7" orient="auto-start-reverse">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#ffd93d"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="10" markerHeight="7" orient="auto-start-reverse">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#6c9fff"/>
+    </marker>
+    <marker id="arrow-gray" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="10" markerHeight="7" orient="auto-start-reverse">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#8892a4"/>
+    </marker>
+    <!-- Gradient for header -->
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4ecdc4"/>
+      <stop offset="100%" stop-color="#6c9fff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="720" fill="#0f1219"/>
+  <rect width="1200" height="720" fill="url(#grid)" opacity="0.4"/>
+
+  <!-- Title -->
+  <text x="600" y="42" text-anchor="middle" font-family="'Inter', sans-serif" font-weight="700" font-size="22" fill="url(#headerGrad)" letter-spacing="1">SECURE FILE UPLOAD SERVICE</text>
+  <text x="600" y="62" text-anchor="middle" font-family="'Inter', sans-serif" font-weight="400" font-size="12" fill="#5a6478" letter-spacing="3">SYSTEM ARCHITECTURE</text>
+
+  <!-- ==================== ROW 1: Client + FastAPI + Postgres ==================== -->
+
+  <!-- Client Box -->
+  <rect x="40" y="100" width="180" height="100" rx="8" fill="#161b26" stroke="#2a3142" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="40" y="100" width="180" height="3" rx="2" fill="#4ecdc4"/>
+  <text x="130" y="133" text-anchor="middle" font-family="'Inter', sans-serif" font-weight="600" font-size="14" fill="#e8ecf1">Client</text>
+  <text x="130" y="155" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#5a6478">Browser / API consumer</text>
+  <text x="130" y="172" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#5a6478">JWT bearer token</text>
+
+  <!-- Arrow: Client -> FastAPI -->
+  <line x1="220" y1="150" x2="310" y2="150" stroke="#4ecdc4" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="6,3"/>
+  <text x="265" y="140" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="#4ecdc4">REST</text>
+
+  <!-- FastAPI Box -->
+  <rect x="310" y="90" width="260" height="120" rx="8" fill="#161b26" stroke="#2a3142" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="310" y="90" width="260" height="3" rx="2" fill="#6c9fff"/>
+  <text x="440" y="120" text-anchor="middle" font-family="'Inter', sans-serif" font-weight="600" font-size="14" fill="#e8ecf1">FastAPI Server</text>
+  <text x="440" y="142" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#5a6478">Auth · RBAC · Rate limiting</text>
+  <text x="440" y="158" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#5a6478">Presigned URL generation</text>
+  <text x="440" y="174" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#5a6478">Ownership checks (anti-IDOR)</text>
+  <text x="440" y="190" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#5a6478">Audit logging</text>
+
+  <!-- Arrow: FastAPI -> Postgres -->
+  <line x1="570" y1="150" x2="660" y2="150" stroke="#6c9fff" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+  <text x="615" y="140" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="#6c9fff">SQL</text>
+
+  <!-- Postgres Box -->
+  <rect x="660" y="100" width="200" height="100" rx="8" fill="#161b26" stroke="#2a3142" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="660" y="100" width="200" height="3" rx="2" fill="#a78bfa"/>
+  <!-- DB icon -->
+  <ellipse cx="760" cy="131" rx="14" ry="6" fill="none" stroke="#a78bfa" stroke-width="1.2"/>
+  <path d="M746,131 v14 c0,3.3 6.3,6 14,6 s14,-2.7 14,-6 v-14" fill="none" stroke="#a78bfa" stroke-width="1.2"/>
+  <text x="760" y="168" text-anchor="middle" font-family="'Inter', sans-serif" font-weight="600" font-size="13" fill="#e8ecf1">PostgreSQL</text>
+  <text x="760" y="186" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#5a6478">File state machine</text>
+
+  <!-- ==================== ROW 2: S3 + Redis + RQ Worker ==================== -->
+
+  <!-- S3 Box -->
+  <rect x="40" y="280" width="200" height="110" rx="8" fill="#161b26" stroke="#2a3142" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="40" y="280" width="200" height="3" rx="2" fill="#ffd93d"/>
+  <text x="140" y="313" text-anchor="middle" font-family="'Inter', sans-serif" font-weight="600" font-size="14" fill="#e8ecf1">Amazon S3</text>
+  <text x="140" y="335" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#5a6478">Presigned PUT upload</text>
+  <text x="140" y="351" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#5a6478">Presigned GET download</text>
+  <text x="140" y="367" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#ffd93d">Bytes never touch server</text>
+
+  <!-- Arrow: Client -> S3 (upload) -->
+  <path d="M130,200 L130,275" stroke="#ffd93d" stroke-width="1.5" marker-end="url(#arrow-amber)" fill="none" stroke-dasharray="6,3"/>
+  <text x="105" y="240" font-family="'JetBrains Mono', monospace" font-size="9" fill="#ffd93d">PUT</text>
+
+  <!-- Arrow: FastAPI -> S3 (presigned URL) -->
+  <path d="M380,210 L380,245 L240,245 L240,275" stroke="#ffd93d" stroke-width="1.5" marker-end="url(#arrow-amber)" fill="none"/>
+  <text x="310" y="238" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="#ffd93d">presigned URL</text>
+
+  <!-- Redis Box -->
+  <rect x="310" y="280" width="200" height="110" rx="8" fill="#161b26" stroke="#2a3142" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="310" y="280" width="200" height="3" rx="2" fill="#ff6b6b"/>
+  <text x="410" y="313" text-anchor="middle" font-family="'Inter', sans-serif" font-weight="600" font-size="14" fill="#e8ecf1">Redis</text>
+  <text x="410" y="337" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#5a6478">Rate limiting</text>
+  <text x="410" y="353" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#5a6478">RQ job queue</text>
+  <text x="410" y="369" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#5a6478">Upload quotas</text>
+
+  <!-- Arrow: FastAPI -> Redis -->
+  <line x1="440" y1="210" x2="440" y2="275" stroke="#ff6b6b" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <text x="455" y="245" font-family="'JetBrains Mono', monospace" font-size="9" fill="#ff6b6b">enqueue</text>
+
+  <!-- RQ Worker Box -->
+  <rect x="600" y="280" width="260" height="110" rx="8" fill="#161b26" stroke="#2a3142" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="600" y="280" width="260" height="3" rx="2" fill="#4ecdc4"/>
+  <text x="730" y="313" text-anchor="middle" font-family="'Inter', sans-serif" font-weight="600" font-size="14" fill="#e8ecf1">RQ Worker</text>
+  <text x="730" y="337" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#5a6478">Fetch from S3</text>
+  <text x="730" y="353" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#5a6478">SHA-256 integrity check</text>
+  <text x="730" y="369" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#5a6478">MIME sniffing (server-side)</text>
+
+  <!-- Arrow: Redis -> RQ Worker -->
+  <line x1="510" y1="335" x2="595" y2="335" stroke="#4ecdc4" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="553" y="326" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="#4ecdc4">dequeue</text>
+
+  <!-- Arrow: RQ Worker -> Postgres (state update) -->
+  <path d="M860,320 L900,320 L900,175 L860,175" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow-blue)" fill="none"/>
+  <text x="920" y="250" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="#a78bfa" transform="rotate(-90 920 250)">state update</text>
+
+  <!-- ==================== ROW 3: State Machine ==================== -->
+
+  <!-- State Machine Section -->
+  <rect x="40" y="440" width="920" height="130" rx="10" fill="#111621" stroke="#1e2536" stroke-width="1"/>
+  <text x="60" y="468" font-family="'Inter', sans-serif" font-weight="600" font-size="13" fill="#8892a4" letter-spacing="2">FILE STATE MACHINE</text>
+
+  <!-- State: PENDING -->
+  <rect x="80" y="490" width="120" height="50" rx="6" fill="#1c2435" stroke="#ffd93d" stroke-width="1.5"/>
+  <text x="140" y="520" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-weight="600" font-size="12" fill="#ffd93d">PENDING</text>
+
+  <!-- Arrow -->
+  <line x1="200" y1="515" x2="270" y2="515" stroke="#4ecdc4" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="235" y="507" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="#5a6478">scan</text>
+
+  <!-- State: SCANNING -->
+  <rect x="270" y="490" width="130" height="50" rx="6" fill="#1c2435" stroke="#6c9fff" stroke-width="1.5"/>
+  <text x="335" y="520" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-weight="600" font-size="12" fill="#6c9fff">SCANNING</text>
+
+  <!-- Branch arrows -->
+  <!-- Pass path -->
+  <line x1="400" y1="500" x2="480" y2="500" stroke="#4ecdc4" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="440" y="493" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="#4ecdc4">pass</text>
+
+  <!-- Fail path -->
+  <line x1="400" y1="530" x2="480" y2="530" stroke="#ff6b6b" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <text x="440" y="547" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="#ff6b6b">fail</text>
+
+  <!-- State: CLEAN -->
+  <rect x="480" y="480" width="120" height="40" rx="6" fill="#0d2e1f" stroke="#4ecdc4" stroke-width="1.5"/>
+  <text x="540" y="505" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-weight="600" font-size="12" fill="#4ecdc4">CLEAN</text>
+
+  <!-- State: QUARANTINED -->
+  <rect x="480" y="525" width="160" height="40" rx="6" fill="#2e1515" stroke="#ff6b6b" stroke-width="1.5"/>
+  <text x="560" y="550" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-weight="600" font-size="12" fill="#ff6b6b">QUARANTINED</text>
+
+  <!-- Arrow: CLEAN -> Download allowed -->
+  <line x1="600" y1="500" x2="700" y2="500" stroke="#4ecdc4" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <rect x="700" y="485" width="200" height="32" rx="4" fill="#0d2e1f" stroke="#4ecdc4" stroke-width="1" stroke-dasharray="4,2"/>
+  <text x="800" y="506" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="11" fill="#4ecdc4">✓ Download allowed</text>
+
+  <!-- Arrow: QUARANTINED -> Download blocked -->
+  <line x1="640" y1="545" x2="700" y2="545" stroke="#ff6b6b" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <rect x="700" y="530" width="200" height="32" rx="4" fill="#2e1515" stroke="#ff6b6b" stroke-width="1" stroke-dasharray="4,2"/>
+  <text x="800" y="551" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="11" fill="#ff6b6b">✗ Download blocked</text>
+
+  <!-- ==================== ROW 4: Security controls legend ==================== -->
+
+  <rect x="40" y="600" width="920" height="100" rx="10" fill="#111621" stroke="#1e2536" stroke-width="1"/>
+  <text x="60" y="628" font-family="'Inter', sans-serif" font-weight="600" font-size="13" fill="#8892a4" letter-spacing="2">SECURITY CONTROLS</text>
+
+  <!-- Control pills -->
+  <rect x="80" y="645" width="130" height="30" rx="15" fill="#1c2435" stroke="#4ecdc4" stroke-width="1"/>
+  <text x="145" y="664" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#4ecdc4">SHA-256 verify</text>
+
+  <rect x="225" y="645" width="130" height="30" rx="15" fill="#1c2435" stroke="#ff6b6b" stroke-width="1"/>
+  <text x="290" y="664" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#ff6b6b">Rate limiting</text>
+
+  <rect x="370" y="645" width="130" height="30" rx="15" fill="#1c2435" stroke="#6c9fff" stroke-width="1"/>
+  <text x="435" y="664" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#6c9fff">JWT + RBAC</text>
+
+  <rect x="515" y="645" width="140" height="30" rx="15" fill="#1c2435" stroke="#ffd93d" stroke-width="1"/>
+  <text x="585" y="664" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#ffd93d">MIME sniffing</text>
+
+  <rect x="670" y="645" width="140" height="30" rx="15" fill="#1c2435" stroke="#a78bfa" stroke-width="1"/>
+  <text x="740" y="664" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#a78bfa">Fail-closed quarantine</text>
+
+  <rect x="825" y="645" width="120" height="30" rx="15" fill="#1c2435" stroke="#8892a4" stroke-width="1"/>
+  <text x="885" y="664" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#8892a4">Audit logs</text>
+
+  <!-- Performance badge -->
+  <rect x="980" y="100" width="195" height="130" rx="8" fill="#161b26" stroke="#2a3142" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="980" y="100" width="195" height="3" rx="2" fill="#4ecdc4"/>
+  <text x="1078" y="128" text-anchor="middle" font-family="'Inter', sans-serif" font-weight="600" font-size="12" fill="#8892a4" letter-spacing="2">PERFORMANCE</text>
+  <text x="1078" y="155" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-weight="700" font-size="18" fill="#4ecdc4">0.626s</text>
+  <text x="1078" y="172" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#5a6478">p50 processing</text>
+  <text x="1078" y="197" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-weight="700" font-size="18" fill="#ffd93d">0.811s</text>
+  <text x="1078" y="214" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#5a6478">p95 processing</text>
+
+  <!-- Throughput badge -->
+  <rect x="980" y="260" width="195" height="80" rx="8" fill="#161b26" stroke="#2a3142" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="980" y="260" width="195" height="3" rx="2" fill="#6c9fff"/>
+  <text x="1078" y="288" text-anchor="middle" font-family="'Inter', sans-serif" font-weight="600" font-size="12" fill="#8892a4" letter-spacing="2">THROUGHPUT</text>
+  <text x="1078" y="318" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-weight="700" font-size="18" fill="#6c9fff">~261</text>
+  <text x="1078" y="332" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#5a6478">jobs / min</text>
+
+</svg>
