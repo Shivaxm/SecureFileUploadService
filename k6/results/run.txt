@@ -1,0 +1,811 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: k6/load-test.js
+        output: -
+
+     scenarios: (100.00%) 3 scenarios, 10 max VUs, 2m5s max duration (incl. graceful stop):
+              * baseline: 10 looping VUs for 20s (exec: baselineScenario)
+              * upload_pipeline: 5 looping VUs for 30s (exec: uploadPipelineScenario, startTime: 25s, gracefulStop: 5s)
+              * files_listing: 8 looping VUs for 20s (exec: filesListingScenario, startTime: 1m45s)
+
+
+Run               [ 100% ] setup()
+baseline          [   0% ]
+upload_pipeline   [   0% ]
+files_listing     [   0% ]
+
+Run               [ 100% ] setup()
+baseline          [   0% ]
+upload_pipeline   [   0% ]
+files_listing     [   0% ]
+
+Run               [ 100% ] setup()
+baseline          [   0% ]
+upload_pipeline   [   0% ]
+files_listing     [   0% ]
+
+Run               [ 100% ] setup()
+baseline          [   0% ]
+upload_pipeline   [   0% ]
+files_listing     [   0% ]
+
+Run               [ 100% ] setup()
+baseline          [   0% ]
+upload_pipeline   [   0% ]
+files_listing     [   0% ]
+
+Run               [ 100% ] setup()
+baseline          [   0% ]
+upload_pipeline   [   0% ]
+files_listing     [   0% ]
+
+Run               [ 100% ] setup()
+baseline          [   0% ]
+upload_pipeline   [   0% ]
+files_listing     [   0% ]
+
+Run               [ 100% ] setup()
+baseline          [   0% ]
+upload_pipeline   [   0% ]
+files_listing     [   0% ]
+
+Run               [ 100% ] setup()
+baseline          [   0% ]
+upload_pipeline   [   0% ]
+files_listing     [   0% ]
+
+Run               [ 100% ] setup()
+baseline          [   0% ]
+upload_pipeline   [   0% ]
+files_listing     [   0% ]
+
+Run               [ 100% ] setup()
+baseline          [   0% ]
+upload_pipeline   [   0% ]
+files_listing     [   0% ]
+
+Run               [ 100% ] setup()
+baseline          [   0% ]
+upload_pipeline   [   0% ]
+files_listing     [   0% ]
+
+Run               [ 100% ] setup()
+baseline          [   0% ]
+upload_pipeline   [   0% ]
+files_listing     [   0% ]
+
+Run               [ 100% ] setup()
+baseline          [   0% ]
+upload_pipeline   [   0% ]
+files_listing     [   0% ]
+
+Run               [ 100% ] setup()
+baseline          [   0% ]
+upload_pipeline   [   0% ]
+files_listing     [   0% ]
+
+running (0m16.0s), 10/10 VUs, 0 complete and 0 interrupted iterations
+baseline          [   3% ] 10 VUs   00.6s/20s
+upload_pipeline • [   0% ] waiting  24.4s
+files_listing   • [   0% ] waiting  1m44.4s
+
+running (0m17.0s), 10/10 VUs, 0 complete and 0 interrupted iterations
+baseline          [   8% ] 10 VUs   01.6s/20s
+upload_pipeline • [   0% ] waiting  23.4s
+files_listing   • [   0% ] waiting  1m43.4s
+
+running (0m18.0s), 10/10 VUs, 10 complete and 0 interrupted iterations
+baseline          [  13% ] 10 VUs   02.6s/20s
+upload_pipeline • [   0% ] waiting  22.4s
+files_listing   • [   0% ] waiting  1m42.4s
+
+running (0m19.0s), 10/10 VUs, 20 complete and 0 interrupted iterations
+baseline          [  18% ] 10 VUs   03.6s/20s
+upload_pipeline • [   0% ] waiting  21.4s
+files_listing   • [   0% ] waiting  1m41.4s
+
+running (0m20.0s), 10/10 VUs, 20 complete and 0 interrupted iterations
+baseline          [  23% ] 10 VUs   04.6s/20s
+upload_pipeline • [   0% ] waiting  20.4s
+files_listing   • [   0% ] waiting  1m40.4s
+
+running (0m21.0s), 10/10 VUs, 30 complete and 0 interrupted iterations
+baseline          [  28% ] 10 VUs   05.6s/20s
+upload_pipeline • [   0% ] waiting  19.4s
+files_listing   • [   0% ] waiting  1m39.4s
+
+running (0m22.0s), 10/10 VUs, 30 complete and 0 interrupted iterations
+baseline          [  33% ] 10 VUs   06.6s/20s
+upload_pipeline • [   0% ] waiting  18.4s
+files_listing   • [   0% ] waiting  1m38.4s
+
+running (0m23.0s), 10/10 VUs, 40 complete and 0 interrupted iterations
+baseline          [  38% ] 10 VUs   07.6s/20s
+upload_pipeline • [   0% ] waiting  17.4s
+files_listing   • [   0% ] waiting  1m37.4s
+
+running (0m24.0s), 10/10 VUs, 50 complete and 0 interrupted iterations
+baseline          [  43% ] 10 VUs   08.6s/20s
+upload_pipeline • [   0% ] waiting  16.4s
+files_listing   • [   0% ] waiting  1m36.4s
+
+running (0m25.0s), 10/10 VUs, 50 complete and 0 interrupted iterations
+baseline          [  48% ] 10 VUs   09.6s/20s
+upload_pipeline • [   0% ] waiting  15.4s
+files_listing   • [   0% ] waiting  1m35.4s
+
+running (0m26.0s), 10/10 VUs, 60 complete and 0 interrupted iterations
+baseline          [  53% ] 10 VUs   10.6s/20s
+upload_pipeline • [   0% ] waiting  14.4s
+files_listing   • [   0% ] waiting  1m34.4s
+
+running (0m27.0s), 10/10 VUs, 60 complete and 0 interrupted iterations
+baseline          [  58% ] 10 VUs   11.6s/20s
+upload_pipeline • [   0% ] waiting  13.4s
+files_listing   • [   0% ] waiting  1m33.4s
+
+running (0m28.0s), 10/10 VUs, 70 complete and 0 interrupted iterations
+baseline          [  63% ] 10 VUs   12.6s/20s
+upload_pipeline • [   0% ] waiting  12.4s
+files_listing   • [   0% ] waiting  1m32.4s
+
+running (0m29.0s), 10/10 VUs, 80 complete and 0 interrupted iterations
+baseline          [  68% ] 10 VUs   13.6s/20s
+upload_pipeline • [   0% ] waiting  11.4s
+files_listing   • [   0% ] waiting  1m31.4s
+
+running (0m30.0s), 10/10 VUs, 80 complete and 0 interrupted iterations
+baseline          [  73% ] 10 VUs   14.6s/20s
+upload_pipeline • [   0% ] waiting  10.4s
+files_listing   • [   0% ] waiting  1m30.4s
+
+running (0m31.0s), 10/10 VUs, 90 complete and 0 interrupted iterations
+baseline          [  78% ] 10 VUs   15.6s/20s
+upload_pipeline • [   0% ] waiting  09.4s
+files_listing   • [   0% ] waiting  1m29.4s
+
+running (0m32.0s), 10/10 VUs, 98 complete and 0 interrupted iterations
+baseline          [  83% ] 10 VUs   16.6s/20s
+upload_pipeline • [   0% ] waiting  08.4s
+files_listing   • [   0% ] waiting  1m28.4s
+
+running (0m33.0s), 10/10 VUs, 100 complete and 0 interrupted iterations
+baseline          [  88% ] 10 VUs   17.6s/20s
+upload_pipeline • [   0% ] waiting  07.4s
+files_listing   • [   0% ] waiting  1m27.4s
+
+running (0m34.0s), 10/10 VUs, 110 complete and 0 interrupted iterations
+baseline          [  93% ] 10 VUs   18.6s/20s
+upload_pipeline • [   0% ] waiting  06.4s
+files_listing   • [   0% ] waiting  1m26.4s
+
+running (0m35.0s), 10/10 VUs, 110 complete and 0 interrupted iterations
+baseline          [  98% ] 10 VUs   19.6s/20s
+upload_pipeline • [   0% ] waiting  05.4s
+files_listing   • [   0% ] waiting  1m25.4s
+
+running (0m36.0s), 00/10 VUs, 118 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline • [   0% ] waiting  04.4s
+files_listing   • [   0% ] waiting  1m24.4s
+
+running (0m37.0s), 00/10 VUs, 118 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline • [   0% ] waiting  03.4s
+files_listing   • [   0% ] waiting  1m23.4s
+
+running (0m38.0s), 00/10 VUs, 118 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline • [   0% ] waiting  02.4s
+files_listing   • [   0% ] waiting  1m22.4s
+
+running (0m39.0s), 00/10 VUs, 118 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline • [   0% ] waiting  01.4s
+files_listing   • [   0% ] waiting  1m21.4s
+
+running (0m40.0s), 00/10 VUs, 118 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline • [   0% ] waiting  00.4s
+files_listing   • [   0% ] waiting  1m20.4s
+
+running (0m41.0s), 05/10 VUs, 118 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [   2% ] 5 VUs    00.6s/30s
+files_listing   • [   0% ] waiting  1m19.4s
+
+running (0m42.0s), 05/10 VUs, 118 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [   5% ] 5 VUs    01.6s/30s
+files_listing   • [   0% ] waiting  1m18.4s
+
+running (0m43.0s), 05/10 VUs, 118 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [   9% ] 5 VUs    02.6s/30s
+files_listing   • [   0% ] waiting  1m17.4s
+
+running (0m44.0s), 05/10 VUs, 118 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  12% ] 5 VUs    03.6s/30s
+files_listing   • [   0% ] waiting  1m16.4s
+
+running (0m45.0s), 05/10 VUs, 118 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  15% ] 5 VUs    04.6s/30s
+files_listing   • [   0% ] waiting  1m15.4s
+
+running (0m46.0s), 05/10 VUs, 118 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  19% ] 5 VUs    05.6s/30s
+files_listing   • [   0% ] waiting  1m14.4s
+
+running (0m47.0s), 05/10 VUs, 118 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  22% ] 5 VUs    06.6s/30s
+files_listing   • [   0% ] waiting  1m13.4s
+
+running (0m48.0s), 05/10 VUs, 118 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  25% ] 5 VUs    07.6s/30s
+files_listing   • [   0% ] waiting  1m12.4s
+
+running (0m49.0s), 05/10 VUs, 118 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  29% ] 5 VUs    08.6s/30s
+files_listing   • [   0% ] waiting  1m11.4s
+
+running (0m50.0s), 05/10 VUs, 119 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  32% ] 5 VUs    09.6s/30s
+files_listing   • [   0% ] waiting  1m10.4s
+
+running (0m51.0s), 05/10 VUs, 123 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  35% ] 5 VUs    10.6s/30s
+files_listing   • [   0% ] waiting  1m09.4s
+
+running (0m52.0s), 05/10 VUs, 123 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  39% ] 5 VUs    11.6s/30s
+files_listing   • [   0% ] waiting  1m08.4s
+
+running (0m53.0s), 05/10 VUs, 123 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  42% ] 5 VUs    12.6s/30s
+files_listing   • [   0% ] waiting  1m07.4s
+
+running (0m54.0s), 05/10 VUs, 123 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  45% ] 5 VUs    13.6s/30s
+files_listing   • [   0% ] waiting  1m06.4s
+
+running (0m55.0s), 05/10 VUs, 123 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  49% ] 5 VUs    14.6s/30s
+files_listing   • [   0% ] waiting  1m05.4s
+
+running (0m56.0s), 05/10 VUs, 123 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  52% ] 5 VUs    15.6s/30s
+files_listing   • [   0% ] waiting  1m04.4s
+
+running (0m57.0s), 05/10 VUs, 123 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  55% ] 5 VUs    16.6s/30s
+files_listing   • [   0% ] waiting  1m03.4s
+
+running (0m58.0s), 05/10 VUs, 125 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  59% ] 5 VUs    17.6s/30s
+files_listing   • [   0% ] waiting  1m02.4s
+
+running (0m59.0s), 05/10 VUs, 126 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  62% ] 5 VUs    18.6s/30s
+files_listing   • [   0% ] waiting  1m01.4s
+
+running (1m00.0s), 05/10 VUs, 127 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  65% ] 5 VUs    19.6s/30s
+files_listing   • [   0% ] waiting  1m00.4s
+
+running (1m01.0s), 05/10 VUs, 128 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  69% ] 5 VUs    20.6s/30s
+files_listing   • [   0% ] waiting  0m59.4s
+
+running (1m02.0s), 05/10 VUs, 128 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  72% ] 5 VUs    21.6s/30s
+files_listing   • [   0% ] waiting  0m58.4s
+
+running (1m03.0s), 05/10 VUs, 128 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  75% ] 5 VUs    22.6s/30s
+files_listing   • [   0% ] waiting  0m57.4s
+
+running (1m04.0s), 05/10 VUs, 128 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  79% ] 5 VUs    23.6s/30s
+files_listing   • [   0% ] waiting  0m56.4s
+
+running (1m05.0s), 05/10 VUs, 129 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  82% ] 5 VUs    24.6s/30s
+files_listing   • [   0% ] waiting  0m55.4s
+
+running (1m06.0s), 05/10 VUs, 130 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  85% ] 5 VUs    25.6s/30s
+files_listing   • [   0% ] waiting  0m54.4s
+
+running (1m07.0s), 05/10 VUs, 131 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  89% ] 5 VUs    26.6s/30s
+files_listing   • [   0% ] waiting  0m53.4s
+
+running (1m08.0s), 05/10 VUs, 131 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  92% ] 5 VUs    27.6s/30s
+files_listing   • [   0% ] waiting  0m52.4s
+
+running (1m09.0s), 05/10 VUs, 133 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  95% ] 5 VUs    28.6s/30s
+files_listing   • [   0% ] waiting  0m51.4s
+
+running (1m10.0s), 05/10 VUs, 133 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline   [  99% ] 5 VUs    29.6s/30s
+files_listing   • [   0% ] waiting  0m50.4s
+
+running (1m11.0s), 05/10 VUs, 133 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ↓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m49.4s
+
+running (1m12.0s), 04/10 VUs, 134 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ↓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m48.4s
+
+running (1m13.0s), 04/10 VUs, 134 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ↓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m47.4s
+
+running (1m14.0s), 04/10 VUs, 134 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ↓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m46.4s
+
+running (1m15.0s), 03/10 VUs, 135 complete and 10 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ↓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m45.4s
+
+running (1m16.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m44.4s
+
+running (1m17.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m43.4s
+
+running (1m18.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m42.4s
+
+running (1m19.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m41.4s
+
+running (1m20.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m40.4s
+
+running (1m21.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m39.4s
+
+running (1m22.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m38.4s
+
+running (1m23.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m37.4s
+
+running (1m24.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m36.4s
+
+running (1m25.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m35.4s
+
+running (1m26.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m34.4s
+
+running (1m27.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m33.4s
+
+running (1m28.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m32.4s
+
+running (1m29.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m31.4s
+
+running (1m30.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m30.4s
+
+running (1m31.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m29.4s
+
+running (1m32.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m28.4s
+
+running (1m33.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m27.4s
+
+running (1m34.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m26.4s
+
+running (1m35.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m25.4s
+
+running (1m36.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m24.4s
+
+running (1m37.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m23.4s
+
+running (1m38.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m22.4s
+
+running (1m39.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m21.4s
+
+running (1m40.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m20.4s
+
+running (1m41.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m19.4s
+
+running (1m42.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m18.4s
+
+running (1m43.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m17.4s
+
+running (1m44.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m16.4s
+
+running (1m45.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m15.4s
+
+running (1m46.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m14.4s
+
+running (1m47.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m13.4s
+
+running (1m48.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m12.4s
+
+running (1m49.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m11.4s
+
+running (1m50.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m10.4s
+
+running (1m51.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m09.4s
+
+running (1m52.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m08.4s
+
+running (1m53.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m07.4s
+
+running (1m54.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m06.4s
+
+running (1m55.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m05.4s
+
+running (1m56.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m04.4s
+
+running (1m57.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m03.4s
+
+running (1m58.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m02.4s
+
+running (1m59.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m01.4s
+
+running (2m00.0s), 00/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs   20s
+upload_pipeline ✓ [ 100% ] 5 VUs    30s
+files_listing   • [   0% ] waiting  0m00.4s
+
+running (2m01.0s), 08/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs  20s
+upload_pipeline ✓ [ 100% ] 5 VUs   30s
+files_listing     [   3% ] 8 VUs   00.6s/20s
+
+running (2m02.0s), 08/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs  20s
+upload_pipeline ✓ [ 100% ] 5 VUs   30s
+files_listing     [   8% ] 8 VUs   01.6s/20s
+
+running (2m03.0s), 08/10 VUs, 136 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs  20s
+upload_pipeline ✓ [ 100% ] 5 VUs   30s
+files_listing     [  13% ] 8 VUs   02.6s/20s
+
+running (2m04.0s), 08/10 VUs, 143 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs  20s
+upload_pipeline ✓ [ 100% ] 5 VUs   30s
+files_listing     [  18% ] 8 VUs   03.6s/20s
+
+running (2m05.0s), 08/10 VUs, 144 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs  20s
+upload_pipeline ✓ [ 100% ] 5 VUs   30s
+files_listing     [  23% ] 8 VUs   04.6s/20s
+
+running (2m06.0s), 08/10 VUs, 144 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs  20s
+upload_pipeline ✓ [ 100% ] 5 VUs   30s
+files_listing     [  28% ] 8 VUs   05.6s/20s
+
+running (2m07.0s), 08/10 VUs, 148 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs  20s
+upload_pipeline ✓ [ 100% ] 5 VUs   30s
+files_listing     [  33% ] 8 VUs   06.6s/20s
+
+running (2m08.0s), 08/10 VUs, 152 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs  20s
+upload_pipeline ✓ [ 100% ] 5 VUs   30s
+files_listing     [  38% ] 8 VUs   07.6s/20s
+
+running (2m09.0s), 08/10 VUs, 152 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs  20s
+upload_pipeline ✓ [ 100% ] 5 VUs   30s
+files_listing     [  43% ] 8 VUs   08.6s/20s
+
+running (2m10.0s), 08/10 VUs, 153 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs  20s
+upload_pipeline ✓ [ 100% ] 5 VUs   30s
+files_listing     [  48% ] 8 VUs   09.6s/20s
+
+running (2m11.0s), 08/10 VUs, 160 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs  20s
+upload_pipeline ✓ [ 100% ] 5 VUs   30s
+files_listing     [  53% ] 8 VUs   10.6s/20s
+
+running (2m12.0s), 08/10 VUs, 160 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs  20s
+upload_pipeline ✓ [ 100% ] 5 VUs   30s
+files_listing     [  58% ] 8 VUs   11.6s/20s
+
+running (2m13.0s), 08/10 VUs, 160 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs  20s
+upload_pipeline ✓ [ 100% ] 5 VUs   30s
+files_listing     [  63% ] 8 VUs   12.6s/20s
+
+running (2m14.0s), 08/10 VUs, 167 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs  20s
+upload_pipeline ✓ [ 100% ] 5 VUs   30s
+files_listing     [  68% ] 8 VUs   13.6s/20s
+
+running (2m15.0s), 08/10 VUs, 168 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs  20s
+upload_pipeline ✓ [ 100% ] 5 VUs   30s
+files_listing     [  73% ] 8 VUs   14.6s/20s
+
+running (2m16.0s), 08/10 VUs, 169 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs  20s
+upload_pipeline ✓ [ 100% ] 5 VUs   30s
+files_listing     [  78% ] 8 VUs   15.6s/20s
+
+running (2m17.0s), 08/10 VUs, 174 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs  20s
+upload_pipeline ✓ [ 100% ] 5 VUs   30s
+files_listing     [  83% ] 8 VUs   16.6s/20s
+
+running (2m18.0s), 08/10 VUs, 176 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs  20s
+upload_pipeline ✓ [ 100% ] 5 VUs   30s
+files_listing     [  88% ] 8 VUs   17.6s/20s
+
+running (2m19.0s), 08/10 VUs, 176 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs  20s
+upload_pipeline ✓ [ 100% ] 5 VUs   30s
+files_listing     [  93% ] 8 VUs   18.6s/20s
+
+running (2m20.0s), 08/10 VUs, 180 complete and 12 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs  20s
+upload_pipeline ✓ [ 100% ] 5 VUs   30s
+files_listing     [  98% ] 8 VUs   19.6s/20s
+
+
+  █ THRESHOLDS 
+
+    http_req_duration{name:GET_files_list}
+    ✓ 'p(95)<400' p(95)=154.92ms
+
+    http_req_duration{name:GET_files_poll}
+    ✗ 'p(95)<300' p(95)=604.3ms
+
+    http_req_duration{name:POST_complete}
+    ✗ 'p(95)<500' p(95)=1.68s
+
+    http_req_duration{name:POST_download_url}
+    ✓ 'p(95)<2000' p(95)=305.13ms
+
+    http_req_duration{name:POST_files_init}
+    ✗ 'p(95)<500' p(95)=2.67s
+
+    http_req_duration{name:PUT_upload}
+    ✓ 'p(95)<5000' p(95)=76.18ms
+
+    http_req_duration{scenario:baseline}
+    ✓ 'p(95)<300' p(95)=73.41ms
+
+    http_req_failed{scenario:baseline}
+    ✓ 'rate<0.01' rate=0.00%
+
+    http_req_failed{scenario:files_listing}
+    ✓ 'rate<0.01' rate=0.64%
+
+    http_req_failed{scenario:upload_pipeline}
+    ✓ 'rate<0.05' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 628    4.473842/s
+    checks_succeeded...: 99.84% 627 out of 628
+    checks_failed......: 0.15%  1 out of 628
+
+    ✓ warmup /health returns 200
+    ✓ GET /health is 200
+    ✓ GET / is 200
+    ✓ GET /architecture is 200
+    ✗ demo/start returns 200
+      ↳  98% — ✓ 73 / ✗ 1
+    ✓ POST /files/init is 200
+    ✓ PUT upload is 200/204
+    ✓ POST /complete is 200
+    ✓ POST /download-url is 200 for ACTIVE
+    ✓ GET /files?format=json #1 is 200
+    ✓ GET /files?format=json #2 is 200
+
+    CUSTOM
+    complete_to_terminal_latency_ms...: avg=2.8s     min=1.13s    med=2.78s    max=4.3s     p(90)=3.47s    p(95)=4.28s   
+    scan_pipeline_latency_ms..........: avg=3.97s    min=1.94s    med=3.63s    max=5.56s    p(90)=5.54s    p(95)=5.56s   
+    upload_cycles_active..............: 20     0.142479/s
+    upload_cycles_completed...........: 20     0.142479/s
+
+    HTTP
+    http_req_duration.................: avg=119.21ms min=37.05ms  med=50.37ms  max=2.79s    p(90)=178.92ms p(95)=540.31ms
+      { expected_response:true }......: avg=119.31ms min=37.05ms  med=50.31ms  max=2.79s    p(90)=179.02ms p(95)=540.32ms
+      { name:GET_files_list }.........: avg=63.6ms   min=43.75ms  med=55.34ms  max=173.5ms  p(90)=81.67ms  p(95)=154.92ms
+      { name:GET_files_poll }.........: avg=194.58ms min=46.34ms  med=91.18ms  max=785.51ms p(90)=557.93ms p(95)=604.3ms 
+      { name:POST_complete }..........: avg=739.37ms min=179.95ms med=585.99ms max=1.69s    p(90)=1.51s    p(95)=1.68s   
+      { name:POST_download_url }......: avg=176.25ms min=96.95ms  med=156.09ms max=310.65ms p(90)=286.09ms p(95)=305.13ms
+      { name:POST_files_init }........: avg=1.09s    min=523.31ms med=634.52ms max=2.79s    p(90)=2.66s    p(95)=2.67s   
+      { name:PUT_upload }.............: avg=57.85ms  min=47.73ms  med=51.76ms  max=78.54ms  p(90)=74.55ms  p(95)=76.18ms 
+      { scenario:baseline }...........: avg=49.52ms  min=37.05ms  med=46.82ms  max=180.88ms p(90)=58.22ms  p(95)=73.41ms 
+    http_req_failed...................: 0.15%  1 out of 665
+      { scenario:baseline }...........: 0.00%  0 out of 368
+      { scenario:files_listing }......: 0.64%  1 out of 155
+      { scenario:upload_pipeline }....: 0.00%  0 out of 137
+    http_reqs.........................: 665    4.737429/s
+
+    EXECUTION
+    iteration_duration................: avg=2.75s    min=1.62s    med=1.65s    max=10.43s   p(90)=4.16s    p(95)=8.74s   
+    iterations........................: 182    1.296559/s
+    vus...............................: 8      min=0        max=10
+    vus_max...........................: 10     min=10       max=10
+
+    NETWORK
+    data_received.....................: 1.4 MB 10 kB/s
+    data_sent.........................: 144 kB 1.0 kB/s
+
+
+
+
+running (2m20.4s), 00/10 VUs, 182 complete and 20 interrupted iterations
+baseline        ✓ [ 100% ] 10 VUs  20s
+upload_pipeline ✓ [ 100% ] 5 VUs   30s
+files_listing   ✓ [ 100% ] 8 VUs   20s
+time="2026-02-22T10:46:18-05:00" level=error msg="thresholds on metrics 'http_req_duration{name:GET_files_poll}, http_req_duration{name:POST_complete}, http_req_duration{name:POST_files_init}' have been crossed"
