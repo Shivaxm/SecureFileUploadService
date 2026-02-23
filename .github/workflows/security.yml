@@ -1,0 +1,170 @@
+name: Security Checks
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Run Semgrep rulesets
+        run: |
+          semgrep scan \
+            --config p/python \
+            --config p/owasp-top-ten \
+            --json \
+            --output semgrep.json \
+            --metrics=off
+
+      - name: Fail on high-severity findings
+        run: |
+          python - <<'PY'
+          import json
+          import sys
+
+          with open("semgrep.json", encoding="utf-8") as fh:
+              data = json.load(fh)
+
+          results = data.get("results", [])
+          high = [
+              finding
+              for finding in results
+              if str(finding.get("extra", {}).get("severity", "")).upper()
+              in {"ERROR", "HIGH", "CRITICAL"}
+          ]
+
+          if high:
+              print(f"Found {len(high)} high-severity Semgrep findings:")
+              for finding in high[:20]:
+                  path = finding.get("path")
+                  check_id = finding.get("check_id")
+                  severity = finding.get("extra", {}).get("severity")
+                  line = finding.get("start", {}).get("line")
+                  message = finding.get("extra", {}).get("message", "").strip()
+                  print(f"- {severity} {check_id} {path}:{line} {message}")
+              sys.exit(1)
+
+          print("No high-severity Semgrep findings.")
+          PY
+
+  dependency-audit:
+    name: Dependency Vulnerability Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pip-audit
+
+      - name: Run pip-audit
+        run: |
+          pip-audit -r requirements.txt --format json -o pip-audit.json || true
+
+      - name: Fail on critical vulnerabilities
+        run: |
+          python - <<'PY'
+          import json
+          import re
+          import sys
+          from pathlib import Path
+
+          path = Path("pip-audit.json")
+          if not path.exists():
+              print("pip-audit did not produce pip-audit.json")
+              sys.exit(1)
+
+          payload = json.loads(path.read_text(encoding="utf-8") or "[]")
+          if isinstance(payload, list):
+              dependencies = payload
+          else:
+              dependencies = payload.get("dependencies") or payload.get("results") or []
+
+          critical = []
+
+          def cvss_score(text):
+              if not text:
+                  return None
+              value = str(text)
+              match = re.search(r"/(\d+\.\d+)", value)
+              if match:
+                  try:
+                      return float(match.group(1))
+                  except ValueError:
+                      return None
+              match = re.search(r"\b(\d+\.\d+)\b", value)
+              if match:
+                  try:
+                      return float(match.group(1))
+                  except ValueError:
+                      return None
+              return None
+
+          for dep in dependencies:
+              name = dep.get("name", "unknown")
+              version = dep.get("version", "unknown")
+              vulns = dep.get("vulns") or dep.get("vulnerabilities") or []
+              for vuln in vulns:
+                  severity_text = str(vuln.get("severity", "")).lower()
+                  score = None
+                  for key in ("cvss", "cvss_score", "score"):
+                      score = cvss_score(vuln.get(key))
+                      if score is not None:
+                          break
+                  if "critical" in severity_text or (score is not None and score >= 9.0):
+                      critical.append(
+                          {
+                              "dependency": f"{name}=={version}",
+                              "id": vuln.get("id", "unknown"),
+                              "severity": vuln.get("severity", "unknown"),
+                              "score": score,
+                          }
+                      )
+
+          if critical:
+              print(f"Found {len(critical)} critical dependency vulnerabilities:")
+              for vuln in critical:
+                  print(
+                      f"- {vuln['dependency']} {vuln['id']} "
+                      f"severity={vuln['severity']} score={vuln['score']}"
+                  )
+              sys.exit(1)
+
+          print("No critical dependency vulnerabilities detected.")
+          PY
+
+  secrets:
+    name: Secrets Detection (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks over full history
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: detect --source . --verbose --redact --log-opts="--all"

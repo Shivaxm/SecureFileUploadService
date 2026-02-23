@@ -6,6 +6,11 @@ FastAPI + Postgres + S3 + Redis + RQ service for secure, presigned uploads with 
 
 Live demo (no signup): https://securefileuploadservice.onrender.com
 
+## Security
+
+- **[Threat Model](THREAT_MODEL.md)** — STRIDE-based security analysis of ScanGate's architecture
+- **Automated Security Checks** — Every push runs SAST (Semgrep), dependency auditing (pip-audit), and secrets detection (Gitleaks) via GitHub Actions
+
 ## Try it in ~10 seconds
 - Open the live demo, click **Start Demo** (sets a signed, HttpOnly demo cookie via `POST /demo/start`).
 - Upload a file, watch it transition from **PENDING** to **CLEAN**/**QUARANTINED**.
