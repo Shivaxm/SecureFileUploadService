@@ -1,346 +1,226 @@
 # ScanGate Threat Model (STRIDE)
 
-## Scope
+This document explains what can go wrong in ScanGate, what ScanGate already does to reduce risk, and what would be the next hardening steps. It is written to be readable without security background, while still pointing to the real code.
 
-- Repo analyzed: `Shivaxm/ScanGate` (FastAPI app, Redis/RQ worker, PostgreSQL, S3-compatible object storage).
-- Primary code paths reviewed:
-  - `app/api/routers/auth.py`
-  - `app/api/routers/demo.py`
-  - `app/api/routers/files.py`
-  - `app/api/deps.py`
-  - `app/core/security.py`
-  - `app/core/rate_limit.py`
-  - `app/services/storage.py`
-  - `app/services/scanner.py`
-  - `app/services/file_type_policy.py`
-  - `app/services/quota.py`
-  - `app/services/audit.py`
-  - `app/db/models.py`
-  - `app/core/config.py`
-  - `app/workers/rq_worker.py`
+## What ScanGate is
 
-## System Overview
+ScanGate is a secure file upload service:
 
-ScanGate is a secure file-ingest service where clients request presigned upload URLs from FastAPI, upload bytes directly to S3-compatible storage, and then finalize uploads so asynchronous scanning can determine whether downloads are allowed. Metadata, ownership, and state transitions are stored in PostgreSQL; scan jobs are queued in Redis/RQ and executed by a worker. The API enforces per-endpoint rate limits, ownership checks, and state-gated downloads, while demo mode uses an HMAC-signed cookie and isolated `demo_id` scoping.
+1. The API creates a database record and returns a short-lived upload link (a presigned URL).
+2. The browser uploads bytes directly to S3 using that link (the API never sees the file bytes).
+3. The client calls “complete”, the API verifies integrity (SHA-256) and basic file-type rules, then enqueues a scan job.
+4. A worker scans the file and updates the state in Postgres.
+5. Downloads are blocked unless the state is `ACTIVE` (clean).
 
-### Data Flow Diagram (Mermaid)
+Relevant code:
+
+- Upload lifecycle: `app/api/routers/files.py`
+- Storage/presign: `app/services/storage.py`
+- Scan worker: `app/services/scanner.py`, `app/workers/rq_worker.py`
+- File type rules: `app/services/file_type_policy.py`
+- Auth + demo: `app/api/routers/auth.py`, `app/api/routers/demo.py`, `app/api/deps.py`
+- Rate limits: `app/core/rate_limit.py`
+- Audit logging: `app/services/audit.py`
+
+## Data flow (diagram)
+
+This Mermaid diagram is intentionally simple to render reliably on GitHub:
 
 ```mermaid
 flowchart LR
-    C[Client Browser / API Consumer]
-    API[FastAPI API]
-    S3[S3-Compatible Object Storage]
-    PG[(PostgreSQL)]
-    R[(Redis)]
-    W[RQ Worker]
+  client[Client (browser)]
+  api[FastAPI API]
+  s3[S3 object storage]
+  pg[(Postgres)]
+  redis[(Redis)]
+  worker[RQ worker]
 
-    C -->|POST /auth/*, /demo/start, /files/*| API
-    API -->|Insert/Query metadata, audit, quotas| PG
-    API -->|Issue presigned PUT/GET| C
-    C -->|PUT object bytes via presigned URL| S3
-    API -->|enqueue_scan(file_id)| R
-    W -->|poll jobs| R
-    W -->|HEAD/GET object, range reads| S3
-    W -->|Update state/quota/audit| PG
-    API -->|GET/POST download URL (ACTIVE only)| S3
+  client -->|Auth, demo start, init/complete/list/download-url| api
+  api -->|Read/write metadata + audit| pg
+  api -->|Issue presigned upload/download links| client
+  client -->|PUT file bytes (presigned)| s3
+  api -->|Enqueue scan job| redis
+  redis -->|Job| worker
+  worker -->|Read file bytes (HEAD/GET)| s3
+  worker -->|Update file state + quota + audit| pg
 ```
 
-### Key Assets
-
-- Authentication material:
-  - JWT bearer tokens from `/auth/login`.
-  - Demo cookie token (`demo`) from `/demo/start`.
-  - `jwt_secret` in runtime config.
-- File data and metadata:
-  - Object bytes in S3.
-  - Metadata (`file_objects`) and audit entries (`audit_events`) in PostgreSQL.
-- Authorization state:
-  - `owner_id`, `demo_id`, `role`, and `FileObjectState`.
-- Infrastructure credentials:
-  - S3 access key/secret, Redis URL, DB URL.
-
-### Trust Boundaries
+## Where trust changes (trust boundaries)
 
-1. Client -> API boundary (untrusted internet input into FastAPI routes).
-2. API -> S3 presign boundary (API signs capability URLs later used outside API path).
-3. Client -> S3 direct upload boundary (bytes bypass API controls once URL is issued).
-4. API -> PostgreSQL boundary (authorization and state decisions depend on DB integrity).
-5. API -> Redis boundary (rate limiting and queueing trust Redis availability/integrity).
-6. Worker -> S3 boundary (scanner trusts object storage reads for validation decisions).
-7. Worker -> PostgreSQL boundary (worker can transition file states and quota counters).
-8. Runtime secrets boundary (ENV configuration for JWT/S3/Redis/DB controls system trust).
+These are the places where data crosses between systems and we should assume it may be unsafe:
 
-## STRIDE Analysis
-
-## Spoofing
-
-### S-01 Forged JWT enables account impersonation
-
-- Threat: An attacker who obtains `jwt_secret` can forge bearer tokens with arbitrary `sub` and potentially admin role context.
-- Component: `app/core/security.py:create_access_token`, `decode_token`; auth-protected routes using `deps.get_current_user`.
-- Risk: High - JWT is the primary identity primitive for authenticated APIs.
-- Mitigation (implemented): JWT signature + expiry verification via `python-jose` (`decode_token`), and user existence check in DB (`deps.get_current_user`).
-- Mitigation (recommended): Rotate signing keys; add key IDs and dual-key validation window; separate signing keys per environment and per token class; introduce token revocation list for high-risk events.
+1. Internet clients calling the API (all request bodies/headers are untrusted).
+2. Presigned links leaving the API (whoever has the link can use it until it expires).
+3. Direct upload to S3 (bytes bypass the API once a presigned link exists).
+4. API and worker reading/writing Postgres (state and ownership rules depend on DB integrity).
+5. API using Redis for rate limits and worker queue (Redis availability and access controls matter).
 
-### S-02 Replay of stolen bearer token
-
-- Threat: A valid bearer token can be replayed from another client until expiry because no device binding or session revocation exists.
-- Component: `Authorization: Bearer` handling in `deps.get_current_user`; `/files/*` and other protected endpoints.
-- Risk: Medium - impact is bounded by token TTL but still grants full user actions during that period.
-- Mitigation (implemented): Token expiration (`jwt_expires_seconds` in `app/core/config.py`) and role/ownership checks in route handlers.
-- Mitigation (recommended): Add jti + server-side denylist on logout/password reset; shorten access token TTL; optionally add refresh-token rotation and anomaly detection on IP/UA drift.
+## STRIDE threats (plain language)
 
-### S-03 Demo token spoofing / session takeover attempt
-
-- Threat: An attacker attempts to forge or tamper with the `demo` cookie to access another demo namespace.
-- Component: `app/api/deps.py:create_demo_token`, `verify_demo_token`; `/demo/start`; demo-scoped branches in `/files/*`.
-- Risk: Medium - demo mode has reduced privileges but still writes to shared infrastructure.
-- Mitigation (implemented): HMAC-SHA256 signature with constant-time compare (`hmac.compare_digest`), expiry bound, `HttpOnly` cookie, `SameSite=Lax`, and `secure` in prod.
-- Mitigation (recommended): Use a dedicated secret for demo cookies (not `jwt_secret`), include explicit audience/version fields, and add server-side nonce store for optional revocation.
+Each item lists:
 
-### S-04 Unauthorized enqueue actor spoofing worker producer
-
-- Threat: If Redis is reachable from untrusted networks, an attacker can inject jobs into the scan queue and impersonate trusted producer behavior.
-- Component: `app/services/scanner.py:get_queue/enqueue_scan`, `app/workers/rq_worker.py`.
-- Risk: High - queue manipulation can alter processing cadence and potentially force state transitions through scanner paths.
-- Mitigation (implemented): None in application layer beyond assuming trusted Redis URL.
-- Mitigation (recommended): Place Redis on private network only, require AUTH/TLS, enforce network ACLs, and add signed job payload validation before processing.
+- Threat: what could happen
+- Where: the part of the system it affects
+- Risk: High/Medium/Low (why)
+- Already in ScanGate: what we do today
+- Recommended: what to add next
 
-## Tampering
-
-### T-01 File bytes modified after init and before complete
+## Spoofing (pretending to be someone else)
 
-- Threat: Uploaded object content differs from metadata declared during `/files/init`.
-- Component: `/files/init`, `/files/{id}/complete`; `file_obj.checksum_sha256`.
-- Risk: High - tampered bytes could bypass naive extension checks.
-- Mitigation (implemented): SHA-256 recomputation over object bytes in `complete_upload`; mismatch sets `REJECTED` and audit event `UPLOAD_REJECTED`.
-- Mitigation (recommended): Add optional object-lock/versioning to detect overwrites and preserve forensic lineage.
+### S-1 Stolen/forged login token used as another user
 
-### T-02 MIME/extension mismatch tampering
+- Threat: If an attacker gets the JWT signing secret, they can generate tokens and act as any user.
+- Where: JWT creation/validation in `app/core/security.py` and auth dependency in `app/api/deps.py`.
+- Risk: High, because JWT is the main identity check for authenticated APIs.
+- Already in ScanGate: tokens expire (`jwt_expires_seconds` in `app/core/config.py`) and we verify signature+exp in `decode_token`.
+- Recommended: rotate secrets; support key IDs (kid) for rotation; consider token revocation for password reset/logout.
 
-- Threat: Client submits safe-looking extension/content-type while uploading different content.
-- Component: `validate_upload_metadata` in `app/services/file_type_policy.py`; sniffing in complete/scan flows.
-- Risk: Medium - mitigated by fail-closed validation but dependent on sniff capability and policy quality.
-- Mitigation (implemented): Extension allowlist, declared MIME checks, sniffed MIME checks, magic-byte checks, office ZIP structure checks; failures lead to `QUARANTINED`.
-- Mitigation (recommended): Add AV/malware engine stage (ClamAV/YARA) and maintain policy map with explicit review cadence.
+### S-2 Demo cookie is forged to access another demo session
 
-### T-03 Response header tampering via malicious filename
+- Threat: An attacker tries to forge or modify the `demo` cookie to read or download another person’s demo uploads.
+- Where: demo token signing/verification in `app/api/deps.py`, demo scoping in `app/api/routers/files.py`.
+- Risk: Medium, because demo access is limited but still touches shared infrastructure.
+- Already in ScanGate: HMAC signature + expiry; cookie is `HttpOnly` and `SameSite=Lax`; file access checks include `demo_id` and return 404 for mismatches.
+- Recommended: use a separate secret for demo signing (not `jwt_secret`); optionally store demo sessions server-side for revocation.
 
-- Threat: Filename with CR/LF or path control characters causes header injection in presigned download responses.
-- Component: `StorageClient.generate_presigned_get_download`.
-- Risk: Medium - could enable response splitting or unsafe filenames in client context.
-- Mitigation (implemented): Sanitization strips CR/LF, path separators, non-printables, and uses RFC5987 `filename*` encoding.
-- Mitigation (recommended): Add stricter filename normalization policy and enforce a canonical server-generated download name option.
+### S-3 Fake scan jobs injected into Redis
 
-### T-04 Audit trail tampering by privileged DB actor
+- Threat: If Redis is reachable, an attacker can enqueue scan jobs and try to force worker activity.
+- Where: RQ queue in `app/services/scanner.py` and worker in `app/workers/rq_worker.py`.
+- Risk: High, because this attacks the backend processing plane.
+- Already in ScanGate: worker refuses to transition files unless the DB state is `SCANNING` (`scan_file` checks state).
+- Recommended: keep Redis private; require auth/TLS; restrict network access; add monitoring on queue depth and unknown job sources.
 
-- Threat: Insider or compromised DB credentials modify or delete audit rows.
-- Component: `audit_events` table and `log_event`.
-- Risk: Medium - affects forensics and non-repudiation guarantees.
-- Mitigation (implemented): Events are generated in multiple code paths (init/complete/scan/download), increasing coverage.
-- Mitigation (recommended): Forward append-only audit stream to immutable store (e.g., object storage with retention or SIEM), and add hash-chain/signature for integrity.
+## Tampering (changing data)
 
-## Repudiation
+### T-1 File bytes changed after init
 
-### R-01 Demo actor attribution is weak
+- Threat: A client uploads different bytes than what was described in `/files/init`.
+- Where: `/files/{id}/complete` in `app/api/routers/files.py`.
+- Risk: High, because file bytes are untrusted and could be malicious.
+- Already in ScanGate: we compute SHA-256 over the uploaded object and reject on mismatch (state becomes `REJECTED`).
+- Recommended: consider S3 object versioning (so overwrites are detectable) and store a content-length expectation from init.
 
-- Threat: Demo actions are difficult to tie to a real human identity; `actor_user_id` can be null for unauthenticated demo paths.
-- Component: `log_event` callsites in `/files/*` and scanner.
-- Risk: Medium - acceptable for demo UX but weak for abuse investigations.
-- Mitigation (implemented): Logs include IP and user-agent when request context exists.
-- Mitigation (recommended): Log `demo_id`, request ID, and optional browser fingerprint hash for stronger demo-session traceability.
+### T-2 “Looks like a PDF” but is actually something else
 
-### R-02 No cryptographic integrity on audit records
+- Threat: A client claims a safe type by filename or content-type but uploads a different format.
+- Where: file policy in `app/services/file_type_policy.py`, sniffing in complete/scan flows.
+- Risk: Medium, because basic checks can be bypassed by more advanced file tricks.
+- Already in ScanGate: allowlist by extension; declared content-type must match policy; sniffed MIME must match; magic-byte checks; Office docs must look like ZIPs and pass deeper worker checks.
+- Recommended: add a real malware scanner stage in the worker (ClamAV/YARA) before marking `ACTIVE`.
 
-- Threat: A party can deny actions by claiming logs were altered post-facto.
-- Component: `app/services/audit.py`, `audit_events` persistence model.
-- Risk: Medium - standard DB logs are mutable by admins.
-- Mitigation (implemented): Structured event schema with timestamps and action labels.
-- Mitigation (recommended): Emit signed audit envelopes and archive off-host; enable WORM retention policy for security logs.
+### T-3 Malicious filename used to mess with download headers
 
-### R-03 Limited request correlation across API and worker
+- Threat: Filename contains characters that can break headers or paths.
+- Where: `StorageClient.generate_presigned_get_download` in `app/services/storage.py`.
+- Risk: Medium.
+- Already in ScanGate: strips CR/LF, removes path separators, replaces unsafe characters, and uses safe encoding for `Content-Disposition`.
+- Recommended: optionally ignore client filename entirely for demo mode and generate a safe server filename.
 
-- Threat: A user disputes a state transition and there is no guaranteed end-to-end correlation ID from API request to worker job.
-- Component: API request handlers vs `scan_file` worker path.
-- Risk: Low/Medium - impairs incident triage rather than directly enabling compromise.
-- Mitigation (implemented): Events include `file_id`, action names (`UPLOAD_ENQUEUED`, `SCAN_PASS`, etc.), and timestamps.
-- Mitigation (recommended): Add trace ID propagation from enqueue to worker and include queue job ID in audit metadata.
+## Repudiation (denying actions later)
 
-### R-04 Authentication events are not fully auditable
+### R-1 “I didn’t upload/download that”
 
-- Threat: Register/login attempts are not recorded in `audit_events`, enabling plausible denial of auth abuse attempts.
-- Component: `app/api/routers/auth.py` lacks `log_event` usage.
-- Risk: Medium - reduces ability to investigate credential stuffing or account misuse.
-- Mitigation (implemented): Rate limits on auth endpoints reduce brute-force throughput.
-- Mitigation (recommended): Add auth audit events (success/failure, email hash, ip, ua) with privacy-preserving redaction.
+- Threat: A user disputes actions if there is no strong record.
+- Where: audit events in `app/services/audit.py` and call sites in `app/api/routers/files.py` and `app/services/scanner.py`.
+- Risk: Medium.
+- Already in ScanGate: audit rows include action, actor id, file id, IP, user-agent, and timestamps.
+- Recommended: include a request ID and the queue job ID for end-to-end tracing; ship audit logs to an external log store.
 
-## Information Disclosure
+### R-2 Demo users are hard to attribute
 
-### I-01 Metadata oversharing in file listing/detail responses
+- Threat: Demo mode is anonymous by design, so abuse investigations are harder.
+- Where: `/demo/start` in `app/api/routers/demo.py` and demo-scoped branches in `app/api/routers/files.py`.
+- Risk: Medium.
+- Already in ScanGate: per-IP rate limits on `/demo/start` and per-user rate limits on file routes; audit includes IP/UA.
+- Recommended: add per-demo quotas (file count/day) and TTL cleanup; optionally add a lightweight “abuse guard” (captcha after repeated starts).
 
-- Threat: Authenticated users receive bucket name, object key, and checksum fields in API responses; leaked client logs/screenshots expose internals.
-- Component: `FileDetail` response model in `app/api/routers/files.py`.
-- Risk: Medium - does not expose bytes directly but leaks storage topology and object identifiers.
-- Mitigation (implemented): Ownership/admin checks block cross-user access.
-- Mitigation (recommended): Return minimal metadata to UI clients; gate operational fields behind admin/debug scopes.
+## Information disclosure (data leaking)
 
-### I-02 Presigned URL leakage reveals temporary object access
+### I-1 Presigned URLs leak like temporary keys
 
-- Threat: If a presigned URL is leaked through browser history, logs, referrers, or screenshots, any holder can access object within TTL.
-- Component: `/files/init` and `/files/{id}/download-url` responses.
-- Risk: High - URL itself is a capability token.
-- Mitigation (implemented): Short TTLs (`upload_presign_ttl_seconds=900`, `download_presign_ttl_seconds=300`) and state/ownership checks before issuing download URL.
-- Mitigation (recommended): Use stricter TTL for demo mode, add one-time-use semantics where feasible, and avoid logging full URLs in frontend/monitoring.
-
-### I-03 Object key includes original filename
-
-- Threat: `object_key` is `uuid + "_" + original_filename`; sensitive names can leak through telemetry or S3 access logs.
-- Component: `init_upload` object key generation.
-- Risk: Medium - metadata privacy risk even when bytes are protected.
-- Mitigation (implemented): UUID prefix reduces guessability of keys.
-- Mitigation (recommended): Use opaque random keys only; store original filename only in DB and response metadata.
-
-### I-04 Health/readiness endpoints provide reconnaissance signal
-
-- Threat: Unauthenticated `/health`, `/health/live`, `/health/ready` allow service fingerprinting and uptime probing.
-- Component: `app/api/routers/health.py`.
-- Risk: Low - current payload is minimal, but endpoint existence aids recon.
-- Mitigation (implemented): `/ready` currently returns coarse `degraded` message without deep internals.
-- Mitigation (recommended): Restrict readiness endpoint to internal network and add auth for detailed diagnostics.
-
-## Denial of Service
-
-### D-01 CPU/IO amplification in `/files/{id}/complete`
-
-- Threat: Complete step computes full SHA-256 over object and performs sniff reads; repeated uploads can force expensive storage reads.
-- Component: `complete_upload` hash loop + range read.
-- Risk: High - synchronous expensive work happens on API request path.
-- Mitigation (implemented): Per-endpoint rate limits (`files_complete` 20/60) and demo size cap 10 MB.
-- Mitigation (recommended): Offload checksum verification to async worker, add request-level timeout/queue, and apply cost-aware per-user budgets.
-
-### D-02 Queue backlog can delay security gating
-
-- Threat: Worker saturation delays scan completion, causing long pending states and operational degradation.
-- Component: Redis queue `scan`; single worker process in `app/workers/rq_worker.py`.
-- Risk: Medium - availability/SLA impact; could be abused by flood traffic.
-- Mitigation (implemented): Retry policy with backoff (`Retry(max=3, interval=[10,30,60])`).
-- Mitigation (recommended): Add queue depth alarms, autoscale workers, and enforce global ingest backpressure when queue lag grows.
-
-### D-03 Redis availability is a hard dependency for rate limits and queueing
-
-- Threat: Redis outage can break auth/file flows (rate limiter exceptions, enqueue failures), reducing service availability.
-- Component: `app/core/rate_limit.py`, `app/services/scanner.py`.
-- Risk: High - multiple critical paths require Redis.
-- Mitigation (implemented): None in app logic beyond middleware wrapper; no local fallback.
-- Mitigation (recommended): Add graceful-degradation policy (fail-safe mode per endpoint), Redis health checks in readiness, and circuit-breaker behavior.
-
-### D-04 Demo data accumulation (no TTL cleanup job)
-
-- Threat: Public demo users can fill storage/metadata over time; TODO exists but cleanup is not implemented.
-- Component: Demo flow in `/demo/start` and `/files/*`; TODO in `app/api/routers/demo.py`.
-- Risk: Medium/High - persistent growth can raise costs and impact performance.
-- Mitigation (implemented): Demo upload size cap and route-level rate limits.
-- Mitigation (recommended): Implement scheduled TTL deletion for demo rows + objects and enforce per-demo file count quota.
-
-## Elevation of Privilege
-
-### E-01 Compromised JWT secret enables privilege escalation to admin
-
-- Threat: An attacker with signing key can mint token for any `sub`; if coupled with DB role modification or chosen admin ID, can access admin-only paths.
-- Component: `decode_token` trust model + role checks in routes.
-- Risk: High - trust root compromise.
-- Mitigation (implemented): Role checks exist (`user.role == admin`) on protected operations.
-- Mitigation (recommended): Isolate secrets in managed secret store, rotate regularly, and add issuer/audience claims with stricter validation.
-
-### E-02 Admin bypass of clean-state download gate can be abused if admin token stolen
-
-- Threat: Current logic allows admin to bypass `ACTIVE` requirement and get download URL for non-clean files.
-- Component: `/files/{id}/download-url` condition in `download_url`.
-- Risk: Medium/High - intended for ops, but stolen admin token grants sensitive bypass.
-- Mitigation (implemented): Requires valid authenticated admin context.
-- Mitigation (recommended): Add explicit justification/audit reason for override, optional dual-control for non-ACTIVE downloads, and alerting on override events.
-
-### E-03 Redis write access can influence processing privileges
-
-- Threat: Attacker with Redis write can enqueue arbitrary `file_id` jobs to trigger worker actions under trusted service identity.
-- Component: RQ queue producer/consumer trust.
-- Risk: High - indirect privilege escalation into backend processing plane.
-- Mitigation (implemented): Worker checks file existence and current state (`SCANNING`) before transition.
-- Mitigation (recommended): Authenticate queue producers, restrict Redis network, and sign/verify job payload metadata.
-
-### E-04 Anonymous user gains scoped write capability via demo start
-
-- Threat: Unauthenticated internet clients can call `/demo/start` and obtain upload/list/download capabilities in demo namespace.
-- Component: `demo.py` + optional-auth branches in `/files/*`.
-- Risk: Medium - intentional for UX, but still an elevation from unauthenticated to stateful capability holder.
-- Mitigation (implemented): Demo isolation via `demo_id`, stricter demo size limit, and rate limits.
-- Mitigation (recommended): Add stronger abuse controls (IP reputation, tighter per-demo quotas, captcha on repeated demo starts).
-
-## Attack Surface Summary
-
-| Surface | Input / Accepted Data | Auth Model | Exposure |
-|---|---|---|---|
-| `POST /auth/register` | JSON `{email,password}` | None | Public internet, rate-limited |
-| `POST /auth/login` | JSON `{email,password}` | None | Public internet, rate-limited |
-| `POST /demo/start` | No body; sets `demo` cookie | None | Public internet, rate-limited |
-| `POST /files/init` | JSON metadata + optional bearer/demo cookie | Bearer OR demo cookie | Public internet, presign issuance |
-| `POST /files/{id}/complete` | Path id, auth context | Bearer OR demo cookie | Public internet, expensive validation |
-| `GET /files?format=json` | Query params | Bearer OR demo cookie | Public internet, metadata listing |
-| `GET /files/{id}` | Path id | Bearer only | Public internet |
-| `POST /files/{id}/download-url` | Path id | Bearer OR demo cookie | Public internet, capability issuance |
-| `GET /health` | None | None | Public internet |
-| `GET /health/live` | None | None | Public internet |
-| `GET /health/ready` | None | None | Public internet |
-| `GET /`, `/upload`, `/architecture` | Browser navigation | None | Public internet (UI) |
-| Presigned `PUT` URL (S3) | Raw file bytes + signed query params | Capability URL | Public internet, bypasses API |
-| Presigned `GET` URL (S3) | Signed query params | Capability URL | Public internet, short TTL |
-| Redis (`redis_url`) | Rate-limit counters, RQ jobs | Infrastructure credential | Should be private network only |
-| PostgreSQL (`database_url`) | User/file/audit/quota rows | Infrastructure credential | Should be private network only |
-
-## Current Security Controls (Observed)
-
-- Auth:
-  - JWT-based bearer auth with signature+exp verification (`app/core/security.py`).
-  - Optional auth path for demo mode (`get_current_user_optional` + `get_demo_id`).
-- Authorization:
-  - Owner/admin checks on file operations in `app/api/routers/files.py`.
-  - Demo scoping via `demo_id` with 404 on cross-demo access.
-- File safety:
-  - SHA-256 checksum verification on complete.
-  - MIME sniff + extension policy + magic prefix validation.
-  - Office OpenXML internal ZIP entry checks in scanner.
-  - Download gated on `FileObjectState.ACTIVE` for non-admins.
-- Abuse controls:
-  - Redis-backed per-route rate limits.
-  - Quotas (max files and bytes) enforced in `QuotaService`.
-  - Demo upload size cap (10 MB) at init/complete.
-- Observability:
-  - Structured audit events with action, actor, IP, UA, metadata.
-
-## Residual Risks
-
-1. No malware engine beyond MIME/magic/policy checks:
-   - Advanced payloads can evade file-type validation while still being malicious.
-2. Sensitive capability URLs can still leak at client edge:
-   - Presigned URLs are bearer-by-possession during TTL.
-3. Redis and worker trust model is implicit:
-   - Queue integrity depends on network isolation rather than signed job provenance.
-4. Demo-mode cleanup is not implemented:
-   - Long-lived demo artifacts can create storage/cost and abuse pressure.
-5. Audit logs are not immutable:
-   - Forensics quality depends on DB trust and operational controls outside app code.
-
-## Prioritized Recommendations
-
-1. Add malware scanning stage (ClamAV/YARA) in worker pipeline before `ACTIVE`.
-2. Implement demo TTL cleanup and per-demo object count caps.
-3. Isolate and harden Redis (private network, auth, TLS), plus queue-depth alerts.
-4. Introduce immutable/forwarded audit logging with correlation IDs.
-5. Rotate and split secrets (JWT vs demo cookie signing key; key IDs and rotation plan).
-
-## Assumptions and Non-Goals
-
-- Assumes S3 bucket policies and IAM are correctly configured out-of-band.
-- Assumes PostgreSQL and Redis are not publicly exposed.
-- This model focuses on application and service integration threats, not host/kernel hardening.
-- Frontend/browser hardening (CSP, clickjacking, etc.) is out of scope except where it impacts token/URL leakage.
+- Threat: If a presigned URL is copied from logs/screenshots/history, anyone can use it until it expires.
+- Where: `/files/init` and `/files/{id}/download-url` responses; presign TTLs in `app/core/config.py`.
+- Risk: High.
+- Already in ScanGate: short TTLs (15 minutes upload, 5 minutes download by default) and download is only issued after state/ownership checks.
+- Recommended: avoid logging URLs in frontend; for demo, consider shorter TTLs; consider one-time download URLs if you can enforce it.
+
+### I-2 File metadata reveals internal storage info
+
+- Threat: Responses include bucket/object keys/checksums which can leak internal details if exposed.
+- Where: `FileDetail` response model in `app/api/routers/files.py`.
+- Risk: Medium.
+- Already in ScanGate: ownership checks prevent cross-user reads.
+- Recommended: hide `bucket` and `object_key` from non-admin responses (UI does not need them).
+
+## Denial of service (making it slow or unavailable)
+
+### D-1 “Complete” endpoint forces expensive reads
+
+- Threat: `/files/{id}/complete` reads the object to compute SHA-256, which is expensive if abused.
+- Where: `complete_upload` in `app/api/routers/files.py`.
+- Risk: High, because it is synchronous and can consume API resources.
+- Already in ScanGate: per-endpoint rate limits in `app/api/routers/files.py` and demo size caps (10 MB).
+- Recommended: move full checksum verification into the worker to protect the API; add timeouts and stricter per-user budgets.
+
+### D-2 Demo content grows without cleanup
+
+- Threat: Demo users accumulate objects and DB rows over time.
+- Where: demo flow; cleanup TODO in `app/api/routers/demo.py`.
+- Risk: Medium/High (cost and reliability).
+- Already in ScanGate: demo size cap and rate limits.
+- Recommended: scheduled TTL deletion for demo files (DB + S3) and per-demo file count quota.
+
+## Elevation of privilege (getting more power than intended)
+
+### E-1 Admin token stolen allows bypass of clean-state download gate
+
+- Threat: Admin can get download URLs even when a file is not `ACTIVE` (clean), so a stolen admin token is higher impact.
+- Where: `/files/{id}/download-url` in `app/api/routers/files.py` (admin bypass logic).
+- Risk: Medium/High.
+- Already in ScanGate: explicit admin role checks.
+- Recommended: log admin override reason; alert on overrides; consider removing bypass for public demo deployments.
+
+## Attack surface (what’s reachable from the internet)
+
+| Endpoint | What it accepts | Who can call it |
+|---|---|---|
+| `POST /auth/register` | email + password | Anyone (rate-limited) |
+| `POST /auth/login` | email + password | Anyone (rate-limited) |
+| `POST /demo/start` | no body; sets cookie | Anyone (rate-limited) |
+| `POST /files/init` | filename, content-type, SHA-256, size | Logged-in users or demo sessions |
+| `POST /files/{id}/complete` | file id | Logged-in users or demo sessions |
+| `GET /files?format=json` | none | Logged-in users or demo sessions |
+| `POST /files/{id}/download-url` | file id | Logged-in users or demo sessions |
+| `GET /health*` | none | Anyone |
+
+Presigned S3 URLs:
+
+- Upload `PUT` URL: anyone who has the URL can upload bytes until it expires.
+- Download `GET` URL: anyone who has the URL can download bytes until it expires.
+
+## What ScanGate already does (quick list)
+
+- Only allows specific file types (extension + content-type + sniff + magic bytes): `app/services/file_type_policy.py`.
+- Verifies SHA-256 on complete (rejects mismatches): `app/api/routers/files.py`.
+- Blocks downloads unless state is `ACTIVE` (clean) for normal users: `app/api/routers/files.py`.
+- Runs async scanning and office ZIP structure checks before `ACTIVE`: `app/services/scanner.py`.
+- Enforces ownership and demo isolation (prevents IDOR): `app/api/routers/files.py`.
+- Rate limits by IP/user in Redis: `app/core/rate_limit.py`.
+- Writes audit events with IP/UA metadata: `app/services/audit.py`.
+
+## Remaining risks (honest)
+
+1. No “real” malware scanner yet; MIME/magic checks are not enough against advanced threats.
+2. Presigned URLs can leak; they act like temporary keys.
+3. If Redis is exposed, attackers can spam jobs and counters.
+4. Demo cleanup is not implemented yet (storage growth over time).
+5. Audit logs live in the same database and are not tamper-proof.
+
+## Next hardening steps (most impact, least change)
+
+1. Add malware scanning in the worker before marking `ACTIVE`.
+2. Add scheduled demo cleanup (delete old demo rows + objects).
+3. Hide storage internals from normal API responses (do not return bucket/object key to UI clients).
+4. Lock down Redis and Postgres to private networking only and add readiness checks.
+5. Rotate secrets and split demo signing secret from JWT signing secret.
